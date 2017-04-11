@@ -2,14 +2,21 @@ arch ?= x86_64
 kernel := build/kernel-$(arch).bin
 iso := build/os-$(arch).iso
 
+target:= x86_64-elf
+path := /home/glorialiu/opt/cross/bin
 linker_script := src/arch/$(arch)/linker.ld
 grub_cfg := src/arch/$(arch)/grub.cfg
 assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
-c_files := src/arch/$(arch)/kernel_main.c src/arch/$(arch)/vga.c
-o_files := src/arch/$(arch)/vga.o src/arch/$(arch)/kernel_main.o
-h_files := src/arch/$(arch)/vga.h
+
+
+src_dir := src/arch/$(arch)
+build_dir := build/arch/$(arch)
+
+c_files := src/arch/$(arch)/kernel_main.c src/arch/$(arch)/vga.c src/arch/$(arch)/memfuncs.c
+o_files := src/arch/$(arch)/vga.o src/arch/$(arch)/kernel_main.o src/arch/$(arch)/memfuncs.o
+h_files := src/arch/$(arch)/vga.h src/arch/$(arch)/memfuncs.h 
 
 .PHONY: all clean run iso
 
@@ -31,11 +38,25 @@ $(iso): $(kernel) $(grub_cfg)
 	@rm -r build/isofiles
 
 $(kernel): $(assembly_object_files) $(linker_script) $(o_files)
-	@ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(o_files)
+	ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(o_files) 
 
-# compile assembly files
-build/arch/$(arch)/%.o: src/arch/$(arch)/%.asm $(c_files) $(h_files)
-	@gcc -g -c $(c_files) $(h_files)
-	@cp kernel_main.o src/arch/$(arch)
+# compile assembly files 
+$(build_dir)/%.o: $(src_dir)/%.asm
 	@mkdir -p $(shell dirname $@)
 	@nasm -felf64 $< -o $@
+
+$(build_dir)/kernel_main.o: $(src_dir)/kernel_main.c
+	$(path)/$(target)-gcc -g -c $(src_dir)/kernel_main.c 
+	@cp kernel_main.o src/arch/$(arch)
+	@mkdir -p $(shell dirname $@)
+
+$(build_dir)/vga.o: $(src_dir)/vga.c
+	$(path)/$(target)-gcc -g -c $(src_dir)/vga.c
+	cp $@ $(src_dir)
+	mkdir -p $(shell dirname $@)
+
+$(build_dir)/memfuncs.o: $(src_dir)/memfuncs.c
+	$(path)/$(target)-gcc -g -c $(src_dir)/memfuncs.c
+	cp $@ $(src_dir)
+	mkdir -p $(shell dirname $@)
+

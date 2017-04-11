@@ -7,11 +7,12 @@ void kmain() {
 
     VGA_clear();
 
-    for (i = 0; i < 40; i++) {
+    for (i = 0; i < 100; i++) {
         VGA_display_char('m');
-        VGA_display_char('i');
+        //VGA_display_char('i');
     }
 
+    
     VGA_display_char('\n');
 
     for (i = 0; i < 30; i++) {
@@ -21,13 +22,57 @@ void kmain() {
 
     VGA_display_char('\n');
 
-    for (i = 0; i < 20; i++) {
-        VGA_display_char('n');
-        VGA_display_char('o');
+
+    for (i = 0; i < 20 ; i++) {
+        VGA_display_char('h');
+        VGA_display_char('i');
+        VGA_display_char('a');
     }
 
-    VGA_display_str("\n\nhello world");
-  
+
+    for (i = 0; i < 17; i++) {
+        VGA_display_str("hello world\n");
+    }
+
+    VGA_display_char('\n');
+
+    VGA_display_char('a');
+    
+    VGA_display_char('\n');
+    VGA_display_char('w');
+
+
+    
+    VGA_display_char('\n');
+    VGA_display_char('i');
+
+    VGA_display_char('\n');
+    VGA_display_char('n');
+
+
+
+    VGA_display_char('\n');
+    VGA_display_char('s');
+
+
+    VGA_display_char('\n');
+    VGA_display_char('p');
+
+    VGA_display_char('\n');
+    VGA_display_char('n');
+
+
+
+    VGA_display_char('\n');
+    VGA_display_char('s');
+
+
+    VGA_display_char('\n');
+    VGA_display_char('p');
+
+
+
+    
 }
 
 
