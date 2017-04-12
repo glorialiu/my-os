@@ -68,10 +68,9 @@ void kmain() {
 
 
     VGA_display_char('\n');
-    VGA_display_char('p');
 
 
-
+    printk("%c", 'h');
     
 }
 

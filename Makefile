@@ -1,22 +1,25 @@
-arch ?= x86_64
+ arch ?= x86_64
 kernel := build/kernel-$(arch).bin
 iso := build/os-$(arch).iso
 
+
 target:= x86_64-elf
 path := /home/glorialiu/opt/cross/bin
+
 linker_script := src/arch/$(arch)/linker.ld
 grub_cfg := src/arch/$(arch)/grub.cfg
 assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
 
+CC := $(path)/$(target)-gcc
 
 src_dir := src/arch/$(arch)
 build_dir := build/arch/$(arch)
 
-c_files := src/arch/$(arch)/kernel_main.c src/arch/$(arch)/vga.c src/arch/$(arch)/memfuncs.c
-o_files := src/arch/$(arch)/vga.o src/arch/$(arch)/kernel_main.o src/arch/$(arch)/memfuncs.o
-h_files := src/arch/$(arch)/vga.h src/arch/$(arch)/memfuncs.h 
+c_files := $(src_dir)/kernel_main.c $(src_dir)/vga.c $(src_dir)/memfuncs.c
+o_files := $(build_dir)/vga.o $(build_dir)/kernel_main.o $(build_dir)/memfuncs.o
+h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h 
 
 .PHONY: all clean run iso
 
@@ -37,26 +40,33 @@ $(iso): $(kernel) $(grub_cfg)
 	@grub-mkrescue -o $(iso) build/isofiles 2> /dev/null
 	@rm -r build/isofiles
 
-$(kernel): $(assembly_object_files) $(linker_script) $(o_files)
+$(kernel): $(assembly_object_files) $(linker_script) $(o_files) $(h_files)
 	ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(o_files) 
 
 # compile assembly files 
-$(build_dir)/%.o: $(src_dir)/%.asm
-	@mkdir -p $(shell dirname $@)
-	@nasm -felf64 $< -o $@
+$(build_dir)/long_mode_init.o: $(src_dir)/long_mode_init.asm
+	mkdir -p $(shell dirname $@)
+	nasm -felf64 $< -o $@
+
+$(build_dir)/boot.o: $(src_dir)/boot.asm
+	mkdir -p $(shell dirname $@)
+	nasm -felf64 $< -o $@
+
+$(build_dir)/multiboot_header.o: $(src_dir)/multiboot_header.asm
+	mkdir -p $(shell dirname $@)
+	nasm -felf64 $< -o $@
 
 $(build_dir)/kernel_main.o: $(src_dir)/kernel_main.c
-	$(path)/$(target)-gcc -g -c $(src_dir)/kernel_main.c 
-	@cp kernel_main.o src/arch/$(arch)
-	@mkdir -p $(shell dirname $@)
-
-$(build_dir)/vga.o: $(src_dir)/vga.c
-	$(path)/$(target)-gcc -g -c $(src_dir)/vga.c
-	cp $@ $(src_dir)
 	mkdir -p $(shell dirname $@)
+	$(CC) -g -c $< -o $@
 
-$(build_dir)/memfuncs.o: $(src_dir)/memfuncs.c
-	$(path)/$(target)-gcc -g -c $(src_dir)/memfuncs.c
-	cp $@ $(src_dir)
+$(build_dir)/vga.o: $(src_dir)/vga.c $(src_dir)/vga.h
 	mkdir -p $(shell dirname $@)
+	$(CC) -g -c $< -o $@
+
+$(build_dir)/memfuncs.o: $(src_dir)/memfuncs.c $(src_dir)/memfuncs.h
+	mkdir -p $(shell dirname $@)
+	$(CC) -g -c $< -o $@
+	
+
 

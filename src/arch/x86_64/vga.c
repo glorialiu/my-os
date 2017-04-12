@@ -30,6 +30,27 @@ void scroll() {
     cursor -= width;
 }
 
+
+void VGA_clear() {
+    int i =0;
+    
+    for (i = 0; i < width * height; i++) {
+        vgaBuff[i] = 0;
+    }
+}
+
+
+void VGA_display_str(const char * s) {
+
+    const char *temp = s;
+
+    while (*s != '\0') {
+        VGA_display_char(*s);
+        s++;
+    }
+
+}
+
 void print_char(char c) {
 
     if (c == '\n') {
@@ -118,7 +139,7 @@ int printk(const char *fmt, ...) {
 }
 
 void print_str(const char *s) {
-
+    //VGA_display_str(s);
 }
 
 void print_uchar(unsigned char u) {
@@ -149,23 +170,4 @@ void VGA_display_char(char c) {
     print_char(c);
 }
 
-void VGA_clear() {
-    int i =0;
-    
-    for (i = 0; i < width * height; i++) {
-        vgaBuff[i] = 0;
-    }
-}
-
-
-void VGA_display_str(const char * s) {
-
-    const char *temp = s;
-
-    while (*s != '\0') {
-        VGA_display_char(*s);
-        s++;
-    }
-
-}
  
