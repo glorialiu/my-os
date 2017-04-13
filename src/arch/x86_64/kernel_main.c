@@ -6,6 +6,7 @@ void kmain() {
     int i = 0;
 
     VGA_clear();
+    
 
     for (i = 0; i < 100; i++) {
         VGA_display_char('m');
@@ -69,9 +70,21 @@ void kmain() {
 
     VGA_display_char('\n');
 
+	printk("%s", "this should print a string\n");
 
-    printk("%c", 'h');
+    printk("this should print an h: %c, this should be an i: %c\n", 'h', 'i');
     
+	printk("hi");
+    
+    printk("hello there!");
+
+    printk("  %u  %u  %d %d ", 500, 204, 205, 210 * -1);
+
+    printk("\n%%");
+
+    printk("hex: %x\n", 17);
+
+    printk("%l", 1000000);
 }
 
 

@@ -4,6 +4,12 @@
 #define VGA_BASE 0xb8000
 #define LINE(x) (x % 80)
 
+#define SHORT_MAX_LEN 5
+#define INT_MAX_LEN 10
+#define LONG_MAX_LEN 20
+#define LLONG_MAX_LEN 20  
+// ya idk about these....
+
 
 static unsigned short *vgaBuff = (unsigned short *) VGA_BASE;
 static int width = 80;
@@ -12,6 +18,34 @@ static int cursor = 0;
 
 
 static unsigned char color = 4;
+
+char * toHex(unsigned input) {
+    char *output = "00000000";
+
+    static char HEX_ARRAY[] = "0123456789ABCDEF";
+
+    int idx = 7;
+
+    while (input > 0) {
+        output[idx--] = HEX_ARRAY[(input & 0xF)];
+
+        input >>= 4;
+    }
+
+    int i = 0;
+
+    for (i = 0; i < 8; i++) {
+        if (*output != '0') {
+            break;
+        }
+        else {
+            output++;
+        }
+    }
+
+    return output;
+}
+
 
 void scroll() {
     int i = 0;
@@ -28,6 +62,8 @@ void scroll() {
     }
 
     cursor -= width;
+
+    memset(vgaBuff + cursor, '\0', width * sizeof(unsigned short));
 }
 
 
@@ -42,11 +78,11 @@ void VGA_clear() {
 
 void VGA_display_str(const char * s) {
 
-    const char *temp = s;
+    char *temp = s;
 
-    while (*s != '\0') {
-        VGA_display_char(*s);
-        s++;
+    while (*temp != '\0') {
+        VGA_display_char(*temp);
+        temp++;
     }
 
 }
@@ -78,17 +114,23 @@ int printk(const char *fmt, ...) {
 
     va_start(params, fmt);
 
-
-    //%% %d %u %x %c %p %h[dux] (value to be displayed as a short/unsigned short) %l[dux] %q[dux] (long long) %s
     
+
+    //%x %p %h[dux] (value to be displayed as a short/unsigned short) %l[dux] %q[dux] (long long)
+    //to do: 
+    // -negative numbers?
+    // -how to print in x
+    // - scrolling has issues, not sure if the memset fixed it
+
     while (*fmt) {
         if (*fmt == '%') {
             switch(*++fmt) {
                 case 'c':
+
                     print_char(va_arg(params, int));
                     break;
                 case 'u':
-                    print_long((long) va_arg(params, unsigned int));
+                    print_uint(va_arg(params, unsigned int));
                     break;
                 case 's':
                     print_str(va_arg(params, char *));
@@ -97,27 +139,68 @@ int printk(const char *fmt, ...) {
                     print_long_hex(va_arg(params, long));
                     break;
                 case 'd':
-                    print_long((long)va_arg(params, int));
+                    print_int(va_arg(params, int));
+                    break;
+                case 'p':
+                    //this is not tested
+                    print_long_hex(va_arg(params, long));
+                    break;
                 case 'h':
                     if (fmt + 1 && *(fmt + 1) == 'd'){
-                        
+                        fmt++;
+                        print_short(va_arg(params, int));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'u') {
-
+                        fmt++;
+                        print_short(va_arg(params, unsigned));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'x') {
-
+                        fmt++;
+                        print_short(va_arg(params, unsigned));
                     }
                     else {
-
+                        print_char('%');
+                        print_char('h');
                     }
     
                     break;
                 case 'l':
-
+                    if (fmt + 1 && *(fmt + 1) == 'd'){
+                        fmt++;
+                        print_long(va_arg(params, int));
+                    }
+                    else if (fmt + 1 && *(fmt + 1) == 'u') {
+                        fmt++;
+                        print_long(va_arg(params, unsigned));
+                    }
+                    else if (fmt + 1 && *(fmt + 1) == 'x') {
+                        fmt++;
+                        print_long(va_arg(params, unsigned));
+                    }
+                    else {
+                        print_char('%');
+                        print_char('l');
+                    }
+    
                     break;
                 case 'q':
-            
+                   if (fmt + 1 && *(fmt + 1) == 'd'){
+                        fmt++;
+                        print_quad(va_arg(params, int));
+                    }
+                    else if (fmt + 1 && *(fmt + 1) == 'u') {
+                        fmt++;
+                        print_quad(va_arg(params, unsigned));
+                    }
+                    else if (fmt + 1 && *(fmt + 1) == 'x') {
+                        fmt++;
+                        print_quad(va_arg(params, unsigned));
+                    }
+                    else {
+                        print_char('%');
+                        print_char('q');
+                    }
+    
                     break;
                 case '%':
                     print_char('%');
@@ -132,31 +215,141 @@ int printk(const char *fmt, ...) {
         }
         fmt++;
     }
-
-
     va_end(params);
 
 }
 
 void print_str(const char *s) {
-    //VGA_display_str(s);
+    VGA_display_str(s);
 }
+
+void print_uint(unsigned int u) {
+    char values[10];
+    unsigned int ndx, value;
+    
+    value = u;
+    ndx = 9;
+    do {
+        values[ndx--] = '0' + value % 10;
+        value /= 10;
+
+    } while (value > 0);
+
+
+    while (ndx < 9) {
+        print_char(values[++ndx]);
+    }
+}
+
+void print_int(int n) {
+    char values[10];
+    unsigned int ndx, value;
+
+    value = n;
+    ndx = 9;
+
+    if (value < 0) {
+        print_char('-');
+        value *= -1;
+    }
+
+    do {
+        values[ndx--] = '0' + value % 10;
+        value /= 10;
+
+    } while (value > 0);
+
+
+    while (ndx < 9) {
+        print_char(values[++ndx]);
+    }
+}
+
 
 void print_uchar(unsigned char u) {
 
 }
 
 void print_short(short sh) {
+    char values[SHORT_MAX_LEN];
+    unsigned int ndx, value;
 
+    value = sh;
+    ndx = SHORT_MAX_LEN - 1;
+
+    if (value < 0) {
+        print_char('-');
+        value *= -1;
+    }
+
+    do {
+        values[ndx--] = '0' + value % 10;
+        value /= 10;
+
+    } while (value > 0);
+
+
+    while (ndx < SHORT_MAX_LEN - 1) {
+        print_char(values[++ndx]);
+    }
 }
 
 void print_long_hex(long l) {
-
+    print_str(toHex(l));
 }
 
 void print_long(long l) {
 
+    char values[LONG_MAX_LEN];
+    unsigned int ndx, value;
+
+    value = l;
+    ndx = LONG_MAX_LEN - 1;
+
+    if (value < 0) {
+        print_char('-');
+        value *= -1;
+    }
+
+    do {
+        values[ndx--] = '0' + value % 10;
+        value /= 10;
+
+    } while (value > 0);
+
+
+    while (ndx < LONG_MAX_LEN - 1) {
+        print_char(values[++ndx]);
+    }
+    
 }
+
+void print_quad(long long l) {
+
+    char values[LLONG_MAX_LEN];
+    unsigned int ndx, value;
+
+    value = l;
+    ndx = LLONG_MAX_LEN - 1;
+
+    if (value < 0) {
+        print_char('-');
+        value *= -1;
+    }
+
+    do {
+        values[ndx--] = '0' + value % 10;
+        value /= 10;
+
+    } while (value > 0);
+
+
+    while (ndx < LLONG_MAX_LEN - 1) {
+        print_char(values[++ndx]);
+    }
+    
+}
+
 
 
 void VGA_display_char(char c) {
