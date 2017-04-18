@@ -17,7 +17,15 @@ static int height = 25;
 static int cursor = 0;
 
 
-static unsigned char color = 4;
+static unsigned char COLOR = RED;
+
+void change_text_color(int new) {
+    COLOR = new;
+}
+
+void new_text_color() {
+    COLOR = COLOR + 1;
+}
 
 char * toHex(unsigned input) {
     char *output = "00000000";
@@ -98,11 +106,19 @@ void print_char(char c) {
     else if (c == '\r') {
         cursor = cursor - LINE(cursor);
     }
+    else if (c == '\t') {
+        print_char(' ');
+        print_char(' ');
+        print_char(' ');
+        print_char(' ');
+        
+    }
     else {
-        vgaBuff[cursor] = (color << 8) | c;
-        //if ( (cursor % width) < (width - 1) ) {
-           cursor++;
-        //}
+        vgaBuff[cursor] = (COLOR << 8) | c;
+        cursor++;
+        if ( (cursor % width) >= (width - 1) ) {
+            print_char('\n');
+        }
         
     }
     
@@ -120,7 +136,6 @@ int printk(const char *fmt, ...) {
     //to do: 
     // -negative numbers?
     // -how to print in x
-    // - scrolling has issues, not sure if the memset fixed it
 
     while (*fmt) {
         if (*fmt == '%') {
@@ -142,21 +157,20 @@ int printk(const char *fmt, ...) {
                     print_int(va_arg(params, int));
                     break;
                 case 'p':
-                    //this is not tested
                     print_long_hex(va_arg(params, long));
                     break;
                 case 'h':
                     if (fmt + 1 && *(fmt + 1) == 'd'){
                         fmt++;
-                        print_short(va_arg(params, int));
+                        print_int(va_arg(params, int));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'u') {
                         fmt++;
-                        print_short(va_arg(params, unsigned));
+                        print_int((int)va_arg(params, unsigned));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'x') {
                         fmt++;
-                        print_short(va_arg(params, unsigned));
+                        print_int((int)va_arg(params, unsigned));
                     }
                     else {
                         print_char('%');
@@ -167,15 +181,15 @@ int printk(const char *fmt, ...) {
                 case 'l':
                     if (fmt + 1 && *(fmt + 1) == 'd'){
                         fmt++;
-                        print_long(va_arg(params, int));
+                        print_long((long)va_arg(params, int));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'u') {
                         fmt++;
-                        print_long(va_arg(params, unsigned));
+                        print_long((long)va_arg(params, unsigned));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'x') {
                         fmt++;
-                        print_long(va_arg(params, unsigned));
+                        print_long((long)va_arg(params, unsigned));
                     }
                     else {
                         print_char('%');
@@ -186,15 +200,15 @@ int printk(const char *fmt, ...) {
                 case 'q':
                    if (fmt + 1 && *(fmt + 1) == 'd'){
                         fmt++;
-                        print_quad(va_arg(params, int));
+                        print_quad((long long) va_arg(params, int));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'u') {
                         fmt++;
-                        print_quad(va_arg(params, unsigned));
+                        print_quad((long long) va_arg(params, unsigned));
                     }
                     else if (fmt + 1 && *(fmt + 1) == 'x') {
                         fmt++;
-                        print_quad(va_arg(params, unsigned));
+                        print_quad((long long) va_arg(params, unsigned));
                     }
                     else {
                         print_char('%');
@@ -224,11 +238,11 @@ void print_str(const char *s) {
 }
 
 void print_uint(unsigned int u) {
-    char values[10];
+    char values[INT_MAX_LEN];
     unsigned int ndx, value;
     
     value = u;
-    ndx = 9;
+    ndx = INT_MAX_LEN;
     do {
         values[ndx--] = '0' + value % 10;
         value /= 10;
@@ -236,17 +250,17 @@ void print_uint(unsigned int u) {
     } while (value > 0);
 
 
-    while (ndx < 9) {
+    while (ndx < INT_MAX_LEN) {
         print_char(values[++ndx]);
     }
 }
 
 void print_int(int n) {
-    char values[10];
+    char values[INT_MAX_LEN + 1];
     unsigned int ndx, value;
 
     value = n;
-    ndx = 9;
+    ndx = INT_MAX_LEN;
 
     if (value < 0) {
         print_char('-');
@@ -256,11 +270,9 @@ void print_int(int n) {
     do {
         values[ndx--] = '0' + value % 10;
         value /= 10;
-
     } while (value > 0);
 
-
-    while (ndx < 9) {
+    while (ndx < INT_MAX_LEN) {
         print_char(values[++ndx]);
     }
 }
@@ -271,6 +283,7 @@ void print_uchar(unsigned char u) {
 }
 
 void print_short(short sh) {
+
     char values[SHORT_MAX_LEN];
     unsigned int ndx, value;
 
@@ -282,6 +295,9 @@ void print_short(short sh) {
         value *= -1;
     }
 
+
+
+
     do {
         values[ndx--] = '0' + value % 10;
         value /= 10;
@@ -289,9 +305,11 @@ void print_short(short sh) {
     } while (value > 0);
 
 
+
     while (ndx < SHORT_MAX_LEN - 1) {
         print_char(values[++ndx]);
     }
+
 }
 
 void print_long_hex(long l) {
@@ -326,11 +344,11 @@ void print_long(long l) {
 
 void print_quad(long long l) {
 
-    char values[LLONG_MAX_LEN];
+    char values[LLONG_MAX_LEN + 1];
     unsigned int ndx, value;
 
     value = l;
-    ndx = LLONG_MAX_LEN - 1;
+    ndx = LLONG_MAX_LEN;
 
     if (value < 0) {
         print_char('-');
@@ -344,7 +362,7 @@ void print_quad(long long l) {
     } while (value > 0);
 
 
-    while (ndx < LLONG_MAX_LEN - 1) {
+    while (ndx < LLONG_MAX_LEN) {
         print_char(values[++ndx]);
     }
     
@@ -353,14 +371,20 @@ void print_quad(long long l) {
 
 
 void VGA_display_char(char c) {
-/*
+
     if (c != '\n') {
-        if (cursor % width == width - 1) {
+        if (cursor % width >= width - 1) {
             print_char('\n');
         }
     }
-*/
+
     print_char(c);
+}
+
+void backspace() {
+    cursor--;
+    vgaBuff[cursor] = (COLOR << 8) | '\0';
+    //cursor--;
 }
 
  
