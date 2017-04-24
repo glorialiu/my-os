@@ -1,6 +1,7 @@
 #include "vga.h"
 #include "ps2.h"
-
+#include "interrupt.h"
+/*
 void printk_tests() {
     printk("******TEST SCRIPT FOR PRINTK******\n");
 
@@ -44,58 +45,9 @@ void printk_tests() {
     printk("%qu ", 655266);
     printk("%qx ", 655266);
 }
+*/
 
-//implement a tab as 4 spaces?
-void kmain() {
-
-    int i = 0;
-
-    VGA_clear();
-    
-    /*
-    for (i = 0; i < 100; i++) {
-        VGA_display_char('m');
-    }
-    VGA_display_char('\n');
-
-    for (i = 0; i < 30; i++) {
-        VGA_display_char('w');
-        VGA_display_char('o');
-    }
-    VGA_display_char('\n');
-    for (i = 0; i < 20 ; i++) {
-        VGA_display_char('h');
-        VGA_display_char('i');
-        VGA_display_char('a');
-    }
-    for (i = 0; i < 17; i++) {
-        VGA_display_str("hello world\n");
-    }
-
-    VGA_display_char('\n');
-
-	printk("%s", "this should print a string\n");
-
-    printk("this should print an h: %c, this should be an i: %c\n", 'h', 'i');
-    
-	printk("hi");
-    
-    printk("hello there!");
-
-    printk("  %u  %u  %d %d ", 500, 204, 205, 210 * -1);
-
-    printk("\n%%");
-
-    printk("hex: %x\n", 17);
-    */
-    
-    change_text_color(OCEAN_BLUE);
-
-    printk_tests();
-
-    ps2_initialize();
-
-
+void continuous_polling() {
     int c;
     while (1) {
         c = get_char();
@@ -104,6 +56,33 @@ void kmain() {
             printk("%c", c);
         }
     }
+}
+
+//implement a tab as 4 spaces?
+void kmain() {
+
+    //VGA_clear();
+
+
+    int loop = 0;
+    while(loop) {
+    }
+
+  
+    idt_init();
+
+    change_text_color(OCEAN_BLUE);
+
+   // printk_tests();
+
+    ps2_initialize();
+
+    sti();
+
+    continuous_polling();
+
+
+
 }
 
 

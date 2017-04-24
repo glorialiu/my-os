@@ -1,6 +1,6 @@
 #include "memfuncs.h"
 void *memset(void *dst, int c, size_t n) {
-    int i = 0;
+    unsigned int i = 0;
 
     int *dest = (int *) dst;
 
@@ -16,7 +16,7 @@ void *memcpy(void *dest, const void *src, size_t n) {
     char *destPtr = (char *) dest;
     char *srcPtr = (char *) src;
 
-    int i = 0;
+    unsigned int i = 0;
 
     while (i < n) {
         destPtr[i] = srcPtr[i];
@@ -49,17 +49,21 @@ char *strcpy(char *dest, const char *src) {
         temp++;
     }
     dest[idx] = '\0';
+
+    return dest;
 }
 
+/*
 int strcmp(const char *s1, const char *s2) {
-
+    return 0;
 }
 
 const char *strchr(const char *s, int c) {
-
+    return NULL;
 }
 
 char *strdup(const char *s) {
-
+    return NULL;
 }
+*/
 

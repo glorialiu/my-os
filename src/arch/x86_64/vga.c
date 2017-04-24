@@ -56,7 +56,6 @@ char * toHex(unsigned input) {
 
 
 void scroll() {
-    int i = 0;
 
     int srcOffset = width;
     int destOffset = 0;
@@ -81,12 +80,13 @@ void VGA_clear() {
     for (i = 0; i < width * height; i++) {
         vgaBuff[i] = 0;
     }
+    cursor = 0;
 }
 
 
 void VGA_display_str(const char * s) {
 
-    char *temp = s;
+    char *temp = (char *) s;
 
     while (*temp != '\0') {
         VGA_display_char(*temp);
@@ -231,6 +231,8 @@ int printk(const char *fmt, ...) {
     }
     va_end(params);
 
+    return 1;
+
 }
 
 void print_str(const char *s) {
@@ -261,12 +263,12 @@ void print_int(int n) {
 
     value = n;
     ndx = INT_MAX_LEN;
-
+/*
     if (value < 0) {
         print_char('-');
         value *= -1;
     }
-
+*/
     do {
         values[ndx--] = '0' + value % 10;
         value /= 10;
@@ -277,11 +279,11 @@ void print_int(int n) {
     }
 }
 
-
+/*
 void print_uchar(unsigned char u) {
-
+    
 }
-
+*/
 void print_short(short sh) {
 
     char values[SHORT_MAX_LEN];
@@ -289,12 +291,12 @@ void print_short(short sh) {
 
     value = sh;
     ndx = SHORT_MAX_LEN - 1;
-
+/*
     if (value < 0) {
         print_char('-');
         value *= -1;
     }
-
+*/
 
 
 
@@ -324,10 +326,12 @@ void print_long(long l) {
     value = l;
     ndx = LONG_MAX_LEN - 1;
 
+/*
     if (value < 0) {
         print_char('-');
         value *= -1;
     }
+*/
 
     do {
         values[ndx--] = '0' + value % 10;
@@ -350,10 +354,12 @@ void print_quad(long long l) {
     value = l;
     ndx = LLONG_MAX_LEN;
 
+/*
     if (value < 0) {
         print_char('-');
         value *= -1;
     }
+*/
 
     do {
         values[ndx--] = '0' + value % 10;

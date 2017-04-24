@@ -31,7 +31,7 @@ extern void print_uint(unsigned int);
 extern void print_int(int);
 extern void print_char(char);
 extern void print_str(const char *);
-extern void print_uchar(unsigned char);
+/*extern void print_uchar(unsigned char);*/
 extern void print_short(short);
 extern void print_long_hex(long);
 extern void print_long(long);

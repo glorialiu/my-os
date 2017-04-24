@@ -13,13 +13,14 @@ assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
 
 CC := $(path)/$(target)-gcc
-
+FLAGS := -g -ggdb -mno-red-zone -ffreestanding -Wall -Werror 
+ASM_FLAGS := -f elf64 -g
 src_dir := src/arch/$(arch)
 build_dir := build/arch/$(arch)
 
 c_files := $(src_dir)/kernel_main.c $(src_dir)/vga.c $(src_dir)/memfuncs.c
-o_files := $(build_dir)/vga.o $(build_dir)/kernel_main.o $(build_dir)/memfuncs.o $(build_dir)/inline_asm.o $(build_dir)/ps2.o
-h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h $(src_dir)/inline_asm.h $(src_dir)/ps2.h
+o_files := $(build_dir)/vga.o $(build_dir)/kernel_main.o $(build_dir)/memfuncs.o $(build_dir)/inline_asm.o $(build_dir)/ps2.o $(build_dir)/interrupt.o
+h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h $(src_dir)/inline_asm.h $(src_dir)/ps2.h $(src_dir)/interrupt.h
 
 .PHONY: all clean run iso
 
@@ -29,7 +30,7 @@ clean:
 	@rm -r build
 
 run: $(iso)
-	@qemu-system-x86_64 -cdrom $(iso)
+	@qemu-system-x86_64 -s -cdrom $(iso)
 
 iso: $(iso)
 
@@ -46,35 +47,37 @@ $(kernel): $(assembly_object_files) $(linker_script) $(o_files) $(h_files)
 # compile assembly files 
 $(build_dir)/long_mode_init.o: $(src_dir)/long_mode_init.asm
 	mkdir -p $(shell dirname $@)
-	nasm -felf64 $< -o $@
+	nasm $(ASM_FLAGS) $< -o $@ 
 
 $(build_dir)/boot.o: $(src_dir)/boot.asm
 	mkdir -p $(shell dirname $@)
-	nasm -felf64 $< -o $@
+	nasm $(ASM_FLAGS) $< -o $@
 
 $(build_dir)/multiboot_header.o: $(src_dir)/multiboot_header.asm
 	mkdir -p $(shell dirname $@)
-	nasm -felf64 $< -o $@
+	nasm $(ASM_FLAGS) $< -o $@
 
 $(build_dir)/inline_asm.o: $(src_dir)/inline_asm.c
 	mkdir -p $(shell dirname $@)
-	$(CC) -g -c $< -o $@ -ffreestanding
+	$(CC) -c $< -o $@ $(FLAGS)
 
 $(build_dir)/ps2.o: $(src_dir)/ps2.c
 	mkdir -p $(shell dirname $@)
-	$(CC) -g -c $< -o $@ -ffreestanding
+	$(CC) -c $< -o $@ $(FLAGS)
 
 $(build_dir)/kernel_main.o: $(src_dir)/kernel_main.c
 	mkdir -p $(shell dirname $@)
-	$(CC) -g -c $< -o $@ -ffreestanding
+	$(CC) -c $< -o $@ $(FLAGS)
 
 $(build_dir)/vga.o: $(src_dir)/vga.c $(src_dir)/vga.h
 	mkdir -p $(shell dirname $@)
-	$(CC) -g -c $< -o $@
+	$(CC) -c $< -o $@ $(FLAGS)
 
 $(build_dir)/memfuncs.o: $(src_dir)/memfuncs.c $(src_dir)/memfuncs.h
 	mkdir -p $(shell dirname $@)
-	$(CC) -g -c $< -o $@
+	$(CC) -c $< -o $@ $(FLAGS)
 	
-
+$(build_dir)/interrupt.o: $(src_dir)/interrupt.c $(src_dir)/interrupt.h
+	mkdir -p $(shell dirname $@)
+	$(CC) -c $< -o $@ $(FLAGS)
 
