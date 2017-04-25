@@ -39,12 +39,19 @@ typedef struct IDT_entry {
 
 extern void IRQ_set_handler(int irq, irq_handler_t handler, void *arg);
 
+
+void set_handler_in_IDT(IDT_entry *entry, uint64_t address, int segment, int tss_st_num);
+
+
 void set_handler(IDT_entry *entry, uint64_t address);
 
 void dummy_handler(int num, int error, void *arg);
 void keyboard_handler(int num, int error, void *arg);
+void invalid_tss_handler(int num, int error, void *arg);
+void gpf_handler(int num, int error, void *arg);
 
 void set_handler_gpf(IDT_entry *entry, uint64_t address);
+
 
 void TSS_init();
 

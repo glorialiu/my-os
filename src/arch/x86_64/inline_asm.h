@@ -15,3 +15,5 @@ extern int are_interrupts_enabled();
 extern void cli(void);
 
 extern void sti(void);
+
+extern void ltr(uint16_t offset);

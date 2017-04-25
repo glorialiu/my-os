@@ -25,7 +25,7 @@ inline void lidt(void *base, uint16_t size) {
         void *base;
     } __attribute__((packed)) IDTR = {size, base};
 
-    asm ( "lidt %0" : : "m"(IDTR) );  
+    asm volatile( "lidt %0" : : "m"(IDTR) );  
 }   
 
 inline void lgdt(void *base, uint16_t size) {
@@ -34,7 +34,7 @@ inline void lgdt(void *base, uint16_t size) {
         void *base;
     } __attribute__((packed)) GDTR = {size, base};
 
-    asm ( "lgdt %0" : : "m"(GDTR) );  
+    asm volatile( "lgdt %0" : : "m"(GDTR): "memory" );  
 }  
 
 inline int are_interrupts_enabled()
@@ -52,4 +52,8 @@ inline void cli() {
 
 inline void sti() {
     asm volatile ("sti");
+}
+
+inline void ltr(uint16_t offset) {
+    asm volatile ("ltr %0" : : "r"(offset): "memory");
 }
