@@ -1,10 +1,21 @@
 global start
 extern long_mode_start
 
+global gdt64
+global tss
+
+global tags
+
+
 section .text
 bits 32
 start:
 
+tags:
+    dw 0 
+    
+    mov [tags], ebx
+    
     mov esp, stack_top
 
     call check_multiboot
@@ -15,7 +26,7 @@ start:
     call enable_paging  
 
     ; load the 64-bit GDT
-    lgdt [gdt64.pointer]  
+    lgdt [pointer]  
 
     jmp gdt64.code:long_mode_start
 
@@ -155,16 +166,22 @@ p3_table:
 p2_table:
     resb 4096
 stack_bottom:
-    resb 64
+    resb 4096
 stack_top:
 
 section .rodata
+align 4096
 gdt64:
     dq 0 ; zero entry
 .code: equ $ - gdt64 ; new
     dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; code segment
-.pointer:
+tss:
+    dq 0;
+    dq 0;
+pointer:
     dw $ - gdt64 - 1
     dq gdt64
+
+
 
 

@@ -17,3 +17,7 @@ extern void cli(void);
 extern void sti(void);
 
 extern void ltr(uint16_t offset);
+
+extern void interrupt(uint16_t num);
+
+

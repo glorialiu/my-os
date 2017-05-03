@@ -7,6 +7,8 @@ extern idt_init
 extern irq_c_handler
 
 global irq_gpf_handler
+global irq_pf_handler
+global irq_df_handler
 
 global irq_handler0
 global irq_handler1
@@ -265,13 +267,21 @@ global irq_handler253
 global irq_handler254
 global irq_handler255
 
+global irq_test_handler
 
+global reloadSegments
+
+
+extern GDT
+extern CS_start
+
+extern tags
 
 section .text
 bits 64
 long_mode_start:
 
-    
+    mov rdi, [tags]
 
     ; load 0 into all data segment registers
     mov ax, 0
@@ -281,7 +291,7 @@ long_mode_start:
     mov fs, ax
     mov gs, ax
     
-    ;call idt_init
+    
 
     call kmain
     hlt
@@ -310,19 +320,59 @@ irq_gpf_handler:
 
     jmp common_irq_handler_2 ; skip pushing rsi
 
+irq_pf_handler:
 
-common_irq_handler:
+    push rdi
+
+    mov rdi, [rsp + 8]
+    mov [rsp + 8], rsp
+
+    add rsp, 8
 
     push rsi
 
+    mov rsi, rdi
+    mov rdi, 14
+
+    jmp common_irq_handler_2 ; skip pushing rsi
+
+irq_df_handler:
+
+    push rdi
+
+    mov rdi, [rsp + 8]
+    mov [rsp + 8], rsp
+
+    add rsp, 8
+
+    push rsi
+
+    mov rsi, rdi
+    mov rdi, 8
+
+    jmp common_irq_handler_2 ; skip pushing rsi
+
+
+irq_test_handler:
+    push rdi
+    mov rdi, [rsp + 8]
+    mov [rsp + 8], rsp
+    add rsp, 8
+    push rsi
+    mov rsi, rdi
+    mov rdi, 50
+
+    jmp common_irq_handler_2 ; skip pushing rsi
+
+common_irq_handler:
+    push rsi
 common_irq_handler_2:
-    
     push rax
     push rbx
     push rcx
     push rdx
     push rbp
-    ;push rsp dont push the stack pointer (??)
+    ;push rsp ;dont push the stack pointer (??)
     
 
     push r8
@@ -403,9 +453,21 @@ irq_handler10:
     mov rdi, 10
     jmp common_irq_handler
 irq_handler11:
+
     push rdi
+
+    mov rdi, [rsp + 8]
+    mov [rsp + 8], rsp
+
+    add rsp, 8
+
+    push rsi
+
+    mov rsi, rdi
     mov rdi, 11
-    jmp common_irq_handler
+
+    jmp common_irq_handler_2 ; skip pushing rsi
+
 irq_handler12:
     push rdi
     mov rdi, 12

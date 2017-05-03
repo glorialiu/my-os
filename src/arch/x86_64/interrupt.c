@@ -1,5 +1,6 @@
 #include "interrupt.h"
 #include "vga.h"
+#include "serial.h"
 
 #define PIC1 0x20
 #define PIC2 0xA0
@@ -7,18 +8,22 @@
 #define PIC2_COMMAND PIC2
 #define PIC1_DATA (PIC1+1)
 #define PIC2_DATA (PIC2+1)
-
 #define PIC_EOI 0x20
 #define IRQS_PER_PIC 8
 #define PIC_INIT 0x11
-
 #define PIC1_START 0x20
 #define PIC2_START 0x28
-
 #define IRQ2 4
 #define ICW4_8086 0x01
 
-#define IDT_ENTRY_SIZE 2
+
+
+#define IDT_ENTRY_SIZE 16
+#define IOPB_SIZE 16
+#define TSS_SEGMENT_SIZE 104
+#define TSS_DESC_SIZE 16
+#define GDT_ENTRY_SIZE 8
+
 
 #define INTERRUPT_TYPE 0xE
 #define TRAP_TYPE 0xF
@@ -40,39 +45,22 @@ struct IDT_entry IDT_table[NUM_INTERRUPTS];
 struct IRQT irq_table[NUM_INTERRUPTS];
 
 /* special stacks for certain faults */
+
 char DF_stack[STACK_SIZE];
 char GPF_stack[STACK_SIZE];
 char PF_stack[STACK_SIZE];
 
+
 struct TSS ts_segment;
 struct TSS_descriptor ts_descriptor;
+struct IOPB io_bitmap;
 
 // GLOBAL DESCRIPTOR TABLE
 struct GDT_entry GDT[NUM_GDT_ENTRIES];
 
 
-
-// segment is KERNEL_SEGMENT or TSS_SEGMENT. tss_st_num must be 0 if KERNEL_SEGMENT 
-void set_handler_in_IDT(IDT_entry *entry, uint64_t address, int segment, int tss_st_num) {
-
-    uint64_t mask = (1 << 16) - 1;
-
-    entry->offset_15_0 = address & mask;
-
-    entry->offset_31_16 = (address >> 16) & mask;
-
-    entry->offset_63_32 = (address >> 32) & (0x100000000 - 1);
-    
-    entry->type = INTERRUPT_TYPE;
-
-    entry->DPL = HARDWARE;
-
-    entry->present = 1;
-
-    entry->selector = segment;
-
-    entry->IST = tss_st_num;
-}
+extern int tss;
+extern int gdt64;
 
 void idt_init() {
 /*
@@ -80,9 +68,12 @@ void idt_init() {
     while(loop) {
     }
 */
-    // initialize PIC in IRQ_init and initialize TSS 
+    // initialize PIC in IRQ_init and initialize TSS (moved TSS init down to in front of LTR)
     IRQ_init();
-    TSS_init();
+    //TSS_init();
+
+
+
 
     // set masks for interrupt lines so no interrupts occur
     int i = 0;
@@ -104,40 +95,118 @@ void idt_init() {
    
     // set handlers that get their own stack
 
-    // set gpf handler, still pointing to dummy handler though (TO DO: change KERNEL_SEGMENT to TSS_SEGMENT and change stack num
-    set_handler_in_IDT(&IDT_table[13], (uint64_t) &irq_gpf_handler, KERNEL_SEGMENT, 0);
+    set_handler_in_IDT(&IDT_table[13], (uint64_t) &irq_gpf_handler, KERNEL_SEGMENT, 1);
+    //set_handler_in_IDT(&IDT_table[13], (uint64_t) &irq_handler13, KERNEL_SEGMENT, 0);
     IRQ_set_handler(13, gpf_handler, NULL);
 
-    // set handlers that dont get their own stack
+    set_handler_in_IDT(&IDT_table[8], (uint64_t) &irq_handler8, KERNEL_SEGMENT, 2);
+    //set_handler_in_IDT(&IDT_table[8], (uint64_t) &irq_df_handler, KERNEL_SEGMENT, 0);
+    IRQ_set_handler(8, df_handler, NULL);
 
+    set_handler_in_IDT(&IDT_table[14], (uint64_t) &irq_pf_handler, KERNEL_SEGMENT, 3);
+    //set_handler_in_IDT(&IDT_table[14], (uint64_t) &irq_handler14, KERNEL_SEGMENT, 3);
+    IRQ_set_handler(14, pf_handler, NULL);
+
+
+
+
+
+    // set handlers that dont get their own stack
+    // set segment not present handler
+     set_handler_in_IDT(&IDT_table[11], (uint64_t) &irq_handler11, KERNEL_SEGMENT, 0);
+    IRQ_set_handler(11, segment_np_handler, NULL);   
     // set keyboard handler
     set_handler_in_IDT(&IDT_table[33], (uint64_t) &irq_handler33, KERNEL_SEGMENT, 0);
     IRQ_set_handler(33, keyboard_handler, NULL);
-
     // set invalid tss handler
     set_handler_in_IDT(&IDT_table[10], (uint64_t) &irq_handler10, KERNEL_SEGMENT,0);
     IRQ_set_handler(10, invalid_tss_handler, NULL);
-
-    IRQ_clear_mask(1);
+    // set handler for serial port (IRQ #4), which would be interrupt # 0x24
+    set_handler_in_IDT(&IDT_table[0x24], (uint64_t) &irq_handler36, KERNEL_SEGMENT, 0);
+    IRQ_set_handler(0x24, serial_irq_handler, NULL);
     
-    printk("idt initialized");
+
+    TSS_init();
+    ltr(TSS_SEGMENT);
+
+    IRQ_clear_mask(4);
+    IRQ_clear_mask(1);
+
+
+    printk("EVERYTHING INITIALIZED\n");
 }
 
+void segment_np_handler(int num, int error, void *arg) {
+    printk("EXCEPTION: SEGMENT NOT PRESENT. Error code %d.\n", error);   
+
+    error_code_print(error);
+
+    asm volatile("hlt");
+}
+
+void df_handler(int num, int error, void *arg) {
+    printk("EXCEPTION: DOUBLE FAULT OCCURRED.\n");
+    int test = 10;
+    printk("address: %p\n", &test);
+
+    
+}
+
+void pf_handler(int num, int error, void *arg) {
+
+    printk("EXCEPTION: PAGE FAULT OCCURRED.\n");
+    int test = 10;
+    printk("address: %p\n", &test);
+    //asm volatile("hlt");
+    
+}
 
 void dummy_handler(int num, int error, void *arg) {
-    printk("dummy handler called\n");
+    printk("DUMMY HANDLER\n");
+    int test = 10;
+    printk("address: %p\n", &test);
 }
 
 void keyboard_handler(int num, int error, void *arg) {
-    printk("keyboard handler called\n");
+    //printk("KEYBOARD INTERRUPT\n");
+    //int test = 10;
+    //printk("address: %p\n", &test);
 }
 
 void invalid_tss_handler(int num, int error, void *arg) {
-    printk("invalid tss handler called\n");
+    printk("EXCEPTION: INVALID TSS.\n");
+    asm volatile("hlt");
 }
 
 void gpf_handler(int num, int error, void *arg) {
-    printk("gpf handler called with error %d\n", error);
+    printk("EXCEPTION: GENERAL PROTECTION FAULT. Error code %d.\n", error);
+    error_code_print(error);
+
+    int test = 10;
+    printk("address: %p\n", &test);
+    //asm volatile("hlt");
+}
+
+
+void set_handler_in_IDT(IDT_entry *entry, uint64_t address, uint16_t segment, int tss_st_num) {
+
+    uint64_t mask = (1 << 16) - 1;
+
+    entry->offset_15_0 = address & mask;
+
+    entry->offset_31_16 = (address >> 16) & mask;
+
+    entry->offset_63_32 = (address >> 32) & (0x100000000 - 1);
+    
+    entry->type = INTERRUPT_TYPE;
+
+    entry->DPL = HARDWARE;
+
+    entry->present = 1;
+
+    entry->selector = KERNEL_SEGMENT;
+
+    entry->IST = tss_st_num;
 }
 
 //interrupt entry point
@@ -145,12 +214,55 @@ void irq_c_handler(int num, int error) {
 
     IRQT *target = &irq_table[num];
 
-    printk("IRQ num is: %d\n", num);
+    //printk("IRQ NUMBER: %d\n", num);
 
     target->handler(num, error, NULL); 
     IRQ_end_of_interrupt(num);
 }
+void TSS_init() {
 
+/*
+    int loop = 1;
+    while(loop) {
+    }
+*/
+
+    // intialize tss segment to all zeroes
+    memset((void *) &ts_segment, 0, TSS_SEGMENT_SIZE);
+
+    // fill in fields of tss
+    ts_segment.interrupt_st1 = (uint64_t) &GPF_stack[STACK_SIZE - 8];
+    ts_segment.interrupt_st2 = (uint64_t) &DF_stack[STACK_SIZE - 8];
+    ts_segment.interrupt_st3 = (uint64_t) &PF_stack[STACK_SIZE - 8];
+
+    
+    printk("gpf stack: %p\n", &GPF_stack[STACK_SIZE - 1]);
+    printk("df stack: %p\n",  &DF_stack[STACK_SIZE - 1]);
+    printk("pf stack: %p\n",  &PF_stack[STACK_SIZE - 1]);
+
+    //need to do i/o field?
+    ts_segment.io_map = (uint64_t) &io_bitmap - (uint64_t) &ts_segment;
+
+    memset((void *) &io_bitmap, 0, IOPB_SIZE);
+    io_bitmap.ones = 0xFF;
+
+    
+    // initializse tss descriptor to all zeroes
+    memset((void *) &ts_descriptor, 0, TSS_DESC_SIZE);
+
+    uint64_t ts_address = (uint64_t) &ts_segment;
+    ts_descriptor.limit_0_15 = TSS_SEGMENT_SIZE - 1;
+    ts_descriptor.base_0_23 = ts_address & ((1<<24) - 1);
+    ts_descriptor.base_24_31 = (ts_address >> 24) & ((1<<9) - 1);
+    ts_descriptor.base_32_63 = (ts_address >> 32) & (0x100000000 - 1);
+ 
+    ts_descriptor.type = 9;//0b1001;
+    ts_descriptor.privilege = 0;
+    ts_descriptor.present = 1;
+
+    TSS_descriptor *ts_ptr = (TSS_descriptor*) &tss;
+    *ts_ptr = ts_descriptor;
+}
 
 void IRQ_init(void) {
 
@@ -243,63 +355,23 @@ void IRQ_set_handler(int irq, irq_handler_t handler, void *arg) {
     new->arg = arg;
 }
 
-void TSS_init() {
 
-
-/*
-    int loop = 1;
-    while(loop) {
-    }
-*/
-
-    // intialize tss segment to all zeroes
-    memset((void *) &ts_segment, 0, sizeof(TSS));
-
-    // fill in fields of tss
-    //ts_segment.interrupt_st1 = (uint64_t) &DF_stack - STACK_SIZE;
-    //ts_segment.interrupt_st2 = (uint64_t) &GPF_stack - STACK_SIZE;
-    //ts_segment.interrupt_st3 = (uint64_t) &PF_stack - STACK_SIZE;
-
-    //need to do i/o field?
-
-  
+void error_code_print(int error) {
+    int mask = 0b11;
     
-    // initializse tss descriptor to all zeroes
-    memset((void *) &ts_descriptor, 0, sizeof(ts_descriptor));
+    int table = mask & (error >> 1);
 
-    uint64_t ts_address = (uint64_t) &ts_segment;
-    ts_descriptor.limit_0_15 = ts_address + sizeof(ts_segment) - 1;
-    ts_descriptor.base_0_23 = ts_address & ((1<<24) - 1);
-    ts_descriptor.base_24_31 = (ts_address >> 24) & ((1<<9) - 1);
-    ts_descriptor.base_32_63 = (ts_address >> 32) & (0x100000000 - 1);
- 
-    ts_descriptor.type = 0b1001;
-    ts_descriptor.privilege = 0;
-    ts_descriptor.present = 1;
+    if (table == 0b00) {
+        printk("    occured in GDT");
+    }
+    else if (table == 0b01) {
+        printk("    occured in IDT");
+    }
+    else {
+        printk("    occured in LDT");
+    }
 
-    // initialize GDT
-
-    memset((void *) &GDT, 0, sizeof(GDT_entry) * NUM_GDT_ENTRIES);
-
-    /* GDT[0] is null */
-
-    /* GDT[1] is CS */
-
-    uint64_t temp = 1;
-    uint64_t cs = (temp<<43) | (temp<<44) | (temp<<47) | (temp<<53);
-    uint64_t *cs_ptr = (uint64_t *) &GDT[1];
-
-    *cs_ptr = cs;
-
-    /* GDT[2]-[3] is TSS */
-    TSS_descriptor *ts_ptr = (TSS_descriptor*) &GDT[2];
-    *ts_ptr = ts_descriptor;
-
-    lgdt(&GDT,  sizeof(GDT_entry) * NUM_GDT_ENTRIES);
-
-    /* load TSS */
-    //ltr(0x10);
-
-
+    printk(" at index %d\n", error >> 3);
 }
- 
+
+

@@ -55,5 +55,20 @@ inline void sti() {
 }
 
 inline void ltr(uint16_t offset) {
-    asm volatile ("ltr %0" : : "r"(offset): "memory");
+    asm volatile ("ltr %0" : : "m"(offset): "memory");
 }
+
+inline void interrupt(uint16_t num) {
+    asm volatile ("int $0" : : "m" (num));
+}
+
+/*
+inline void set_kcs(int CS_start) {
+    asm volatile (
+    "ljmp %0, $farjmp \n"
+    "farjmp: \n"
+    "nop \n"
+    "i"(CS_start));
+}
+*/
+ 

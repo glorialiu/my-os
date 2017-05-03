@@ -1,5 +1,7 @@
 #include "vga.h"
 #include "memfuncs.h"
+#include "inline_asm.h"
+#include "serial.h"
 
 #define VGA_BASE 0xb8000
 #define LINE(x) (x % 80)
@@ -96,6 +98,13 @@ void VGA_display_str(const char * s) {
 }
 
 void print_char(char c) {
+    
+    int enable_interrupts = 0;
+    if (are_interrupts_enabled()) {
+        enable_interrupts = 1;
+        cli();
+    }
+    
 
     if (c == '\n') {
         cursor = cursor + width - LINE(cursor);
@@ -121,9 +130,22 @@ void print_char(char c) {
         }
         
     }
+
+    if (enable_interrupts) {
+        sti();
+    }
+    SER_write(&c, 1);
+
     
 }
 int printk(const char *fmt, ...) {
+
+
+    int enable_interrupts = 0;
+    if (are_interrupts_enabled()) {
+        enable_interrupts = 1;
+        cli();
+    }
 
     va_list params;
 
@@ -230,6 +252,11 @@ int printk(const char *fmt, ...) {
         fmt++;
     }
     va_end(params);
+
+    if (enable_interrupts) {
+        sti();
+    }
+    
 
     return 1;
 

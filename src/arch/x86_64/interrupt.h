@@ -24,71 +24,81 @@ typedef struct IRQT {
 } IRQT;
 
 typedef struct IDT_entry {
-    uint16_t offset_15_0:16;
-    uint16_t selector:16;
-    uint8_t IST:3;
-    uint8_t reserved1:5;
-    uint8_t type:4;
-    uint8_t zero:1;
-    uint8_t DPL:2;
-    uint8_t present:1;
-    uint16_t offset_31_16:16;
-    uint32_t offset_63_32:32;
-    uint32_t reserved2:32;
+    uint64_t offset_15_0:16;
+    uint64_t selector:16;
+    uint64_t IST:3;
+    uint64_t reserved1:5;
+    uint64_t type:4;
+    uint64_t zero:1;
+    uint64_t DPL:2;
+    uint64_t present:1;
+    uint64_t offset_31_16:16;
+    uint64_t offset_63_32:32;
+    uint64_t reserved2:32;
 } __attribute__((packed)) IDT_entry;
 
 extern void IRQ_set_handler(int irq, irq_handler_t handler, void *arg);
 
 
-void set_handler_in_IDT(IDT_entry *entry, uint64_t address, int segment, int tss_st_num);
+void set_handler_in_IDT(IDT_entry *entry, uint64_t address, uint16_t segment, int tss_st_num);
 
 
 void set_handler(IDT_entry *entry, uint64_t address);
 
+void pf_handler(int num, int error, void *arg);
+void df_handler(int num, int error, void *arg);
 void dummy_handler(int num, int error, void *arg);
 void keyboard_handler(int num, int error, void *arg);
 void invalid_tss_handler(int num, int error, void *arg);
 void gpf_handler(int num, int error, void *arg);
+void segment_np_handler(int num, int error, void *arg);
 
 void set_handler_gpf(IDT_entry *entry, uint64_t address);
 
+void error_code_print(int error);
 
 void TSS_init();
 
-typedef struct TSS {
-    uint32_t reserved1:32;
-    uint64_t privilege_st1:64;
-    uint64_t privilege_st2:64;
-    uint64_t privilege_st3:64;
-    uint64_t reserved2:64;
-    uint64_t interrupt_st1:64;
-    uint64_t interrupt_st2:64;
-    uint64_t interrupt_st3:64;
-    uint64_t interrupt_st4:64;
-    uint64_t interrupt_st5:64;
-    uint64_t interrupt_st6:64;
-    uint64_t interrupt_st7:64;
-    uint64_t reserved3:64;
-    uint16_t reserved4:16;
-    uint16_t io_map:16;
+typedef struct IOPB {
+    uint64_t ones: 8;
+    uint64_t field1: 56;
+    uint64_t field2;
+} __attribute__((packed)) IOPB;
+
+typedef struct TSS {    
+    uint64_t reserved1:32;
+    uint64_t privilege_st0;
+    uint64_t privilege_st1;
+    uint64_t privilege_st2;
+    uint64_t reserved2;
+    uint64_t interrupt_st1;
+    uint64_t interrupt_st2;
+    uint64_t interrupt_st3;
+    uint64_t interrupt_st4;
+    uint64_t interrupt_st5;
+    uint64_t interrupt_st6;
+    uint64_t interrupt_st7;
+    uint64_t reserved3;
+    uint64_t reserved4:16;
+    uint64_t io_map:16;
 } __attribute__((packed)) TSS;
 
 typedef struct TSS_descriptor {
-    uint16_t limit_0_15:16;
-    uint32_t base_0_23:24;
-    uint8_t type:4;
-    uint8_t zero:1;
-    uint8_t privilege:3;
-    uint8_t present:1;
-    uint8_t limit_16_19:4;
-    uint8_t available:1;
-    uint8_t ignored1:2;
-    uint8_t granularity:1;
-    uint8_t base_24_31:8;
-    uint32_t base_32_63:32;
-    uint16_t ignored2:9;
-    uint8_t zero1:5;
-    uint32_t ignored3:19;
+    uint64_t limit_0_15:16;
+    uint64_t base_0_23:24;
+    uint64_t type:4;
+    uint64_t zero:1;
+    uint64_t privilege:2;
+    uint64_t present:1;
+    uint64_t limit_16_19:4;
+    uint64_t available:1;
+    uint64_t ignored1:2;
+    uint64_t granularity:1;
+    uint64_t base_24_31:8;
+    uint64_t base_32_63:32;
+    uint64_t ignored2:8;
+    uint64_t zero1:5;
+    uint64_t ignored3:19;
 } __attribute__((packed)) TSS_descriptor;
 
 
@@ -96,7 +106,14 @@ typedef struct GDT_entry {
     uint64_t entry;
 } __attribute__((packed)) GDT_entry;
 
+
+extern int reloadSegments;
+extern uint64_t CS_start;
+
 extern int irq_gpf_handler;
+extern int irq_test_handler;
+extern int irq_pf_handler;
+extern int irq_df_handler;
 
 extern int irq_handler0;
 extern int irq_handler1;

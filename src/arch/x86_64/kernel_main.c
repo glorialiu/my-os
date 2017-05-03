@@ -1,6 +1,10 @@
 #include "vga.h"
 #include "ps2.h"
 #include "interrupt.h"
+#include "serial.h"
+#include "memfuncs.h"
+#include "page_alloc.h"
+
 /*
 void printk_tests() {
     printk("******TEST SCRIPT FOR PRINTK******\n");
@@ -59,29 +63,59 @@ void continuous_polling() {
 }
 
 //implement a tab as 4 spaces?
-void kmain() {
+void kmain(int tagPtr) {
 
-    //VGA_clear();
+    VGA_clear();
+    change_text_color(OCEAN_BLUE);
+
+    ps2_initialize();
+    SER_init();
 
 
-    int loop = 0;
+    printk("tag ptr: %x\n", tagPtr);
+
+   uint64_t tags = tagPtr & 0xFFFFFFFF;
+
+   parse_tags(tags);
+
+    idt_init();
+    sti();
+
+
+    // printk_tests();
+    //SER_write("hi", 3);
+
+   // char *test = "wow this is a long output string woohoooooo !!!!!\n\n testing new lines yeah\n\nwefjeiaow;ejfwefwf ksdjflasjdf;asBoth have the same basic types of pins. A DB-25 has most of the pins as ground pins, whereas a DE-9 has only a few ground pins. There is a transmitting pin (for sending information away) and a receiving pin (for getting information). Some serial ports can have a duplex mode--that is, they can send and receive simultaneously. There are a few other pins, used for hardware handshaking. In the past, there was no duplex mode, so if a computer wanted to send something it had to tell the other device or computer that it was about to transmit, using one of the hardware handshaking pins. The other thing would then use another handshaking pin to tell it to send whatever it wanted to send. Today there is duplex mode, but the handshaking pins are still used.";
+   // SER_write(test, strlen(test));
+
+   
+/*
+
+    int loop = 1;
     while(loop) {
     }
 
+    uint64_t fault = 0xFFFFFFFFFFFF;
+
+    int test = * ((int *) fault);
+    
+    printk("test is %d\n", test);
+
+    */
+
+  //  asm volatile("int $8"); //double fault
+  //  asm volatile("int $14"); //page fault
+   // asm volatile("int $13");
+
+  //  asm volatile("int $8"); //double fault
+  //  asm volatile("int $14"); //page fault
+
+
+
   
-    idt_init();
-
-    change_text_color(OCEAN_BLUE);
-
-   // printk_tests();
-
-    ps2_initialize();
-
-    sti();
+    
 
     continuous_polling();
-
-
 
 }
 
