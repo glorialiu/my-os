@@ -1,8 +1,8 @@
 #include "memfuncs.h"
-void *memset(void *dst, int c, size_t n) {
+void *memset(void *dst, char c, size_t n) {
     unsigned int i = 0;
 
-    int *dest = (int *) dst;
+    char *dest = (char *) dst;
 
     while (i < n) {
         dest[i] = c;

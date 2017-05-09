@@ -13,7 +13,7 @@ assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
 
 CC := $(path)/$(target)-gcc
-FLAGS := -g -ggdb -mno-red-zone -ffreestanding -Wall -Werror 
+FLAGS := -g -ggdb -mno-red-zone -ffreestanding  
 ASM_FLAGS := -f elf64 -g
 src_dir := src/arch/$(arch)
 build_dir := build/arch/$(arch)

@@ -148,6 +148,7 @@ void df_handler(int num, int error, void *arg) {
     printk("EXCEPTION: DOUBLE FAULT OCCURRED.\n");
     int test = 10;
     printk("address: %p\n", &test);
+    asm volatile("hlt");
 
     
 }
@@ -157,14 +158,17 @@ void pf_handler(int num, int error, void *arg) {
     printk("EXCEPTION: PAGE FAULT OCCURRED.\n");
     int test = 10;
     printk("address: %p\n", &test);
-    //asm volatile("hlt");
+    asm volatile("hlt");
     
 }
 
 void dummy_handler(int num, int error, void *arg) {
     printk("DUMMY HANDLER\n");
+    
     int test = 10;
     printk("address: %p\n", &test);
+    //uint64_t ptr = 0xFFFFFFFF;
+    //int nope = * (char* ) ptr;
 }
 
 void keyboard_handler(int num, int error, void *arg) {
@@ -184,7 +188,7 @@ void gpf_handler(int num, int error, void *arg) {
 
     int test = 10;
     printk("address: %p\n", &test);
-    //asm volatile("hlt");
+    asm volatile("hlt");
 }
 
 

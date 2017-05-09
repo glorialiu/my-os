@@ -72,15 +72,43 @@ void kmain(int tagPtr) {
     SER_init();
 
 
-    printk("tag ptr: %x\n", tagPtr);
+    //printk("tag ptr: %x\n", tagPtr);
 
-   uint64_t tags = tagPtr & 0xFFFFFFFF;
+    uint64_t tags = tagPtr & 0xFFFFFFFF;
 
-   parse_tags(tags);
 
+
+    
     idt_init();
     sti();
+    
+    parse_tags(tags);
 
+    void *temp = MMU_pf_alloc();
+    void *temp2 = MMU_pf_alloc();
+    void *temp3 = MMU_pf_alloc();
+
+/*
+    int i = 0;
+    for (i = 0; i < 32736 + 10; i++) {
+        //printk("%d pages allocated\n", i + 1);
+        MMU_pf_alloc();
+    }
+*/
+
+
+
+    MMU_pf_free(temp);
+    MMU_pf_free(temp2);
+    MMU_pf_free(temp3);
+
+    MMU_pf_alloc();
+    MMU_pf_alloc();
+    MMU_pf_alloc();
+
+
+  
+    printk("finished allocating\n");
 
     // printk_tests();
     //SER_write("hi", 3);
@@ -103,9 +131,10 @@ void kmain(int tagPtr) {
 
     */
 
-  //  asm volatile("int $8"); //double fault
-  //  asm volatile("int $14"); //page fault
-   // asm volatile("int $13");
+
+    //asm volatile("int $8"); //double fault
+    //asm volatile("int $14"); //page fault
+    //asm volatile("int $13");
 
   //  asm volatile("int $8"); //double fault
   //  asm volatile("int $14"); //page fault
@@ -114,7 +143,7 @@ void kmain(int tagPtr) {
 
   
     
-
+    printk("about to start polling\n");
     continuous_polling();
 
 }
