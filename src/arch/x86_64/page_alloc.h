@@ -1,17 +1,14 @@
 #include <stdint.h>
+
 extern void parse_tags(int tagPtr);
 
 extern void *MMU_pf_alloc(void);
 extern void MMU_pf_free(void *);
 
-typedef struct pnode {
-    uint64_t next; //address of this node
-} __attribute__((packed)) pnode;
 
 typedef struct tag_header {
     uint64_t type:32;
     uint64_t size:32;
-
 }__attribute__((packed)) tag_header;
 
 typedef struct mmap_entry {

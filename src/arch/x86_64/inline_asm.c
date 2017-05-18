@@ -62,6 +62,15 @@ inline void interrupt(uint16_t num) {
     asm volatile ("int $0" : : "m" (num));
 }
 
+inline uint64_t read_cr2(void) {
+    uint64_t val;
+    asm volatile ("mov %%cr2, %0" : "=r" (val));
+    return val;
+}
+
+inline void load_cr3(uint64_t newReg) {
+    asm volatile ("mov %0, %%cr3"::"r"(newReg));
+}
 /*
 inline void set_kcs(int CS_start) {
     asm volatile (

@@ -281,6 +281,10 @@ section .text
 bits 64
 long_mode_start:
 
+     ; print `OKAY` to screen, should never get here
+    mov rax, 0x2f592f412f4b2f4f
+    mov qword [0xb8000], rax   
+
     mov rdi, [tags]
 
     ; load 0 into all data segment registers
@@ -291,14 +295,12 @@ long_mode_start:
     mov fs, ax
     mov gs, ax
     
-    
+
 
     call kmain
     hlt
 
-    ; print `OKAY` to screen, should never get here
-    mov rax, 0x2f592f412f4b2f4f
-    mov qword [0xb8000], rax
+
 
     hlt
 

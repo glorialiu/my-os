@@ -79,7 +79,7 @@ void parse_tags(int tagPtr) {
            
             while ((char *) entry_iter < ((char *) curTag + curTag->size)) {
                 
-               // printk("type: %d, base_addr: %d, length: %d\n", entry_iter->type, (int)entry_iter->base_addr, (int) entry_iter->length);
+               printk("type: %d, base_addr: %d, length: %d\n", entry_iter->type, (int)entry_iter->base_addr, (int) entry_iter->length);
 
                 if (entry_iter->type == 1) {
                     zones[zIdx].base = (int) entry_iter->base_addr;
@@ -133,12 +133,12 @@ void parse_tags(int tagPtr) {
     
     lowMemStart = zones[0].base;
     lowMemEnd = zones[0].base + zones[0].length;
-    highMemStart = zones[1].base;
+    highMemStart = zones[1].base + kMaxAddress;
     highMemEnd = zones[1].base + zones[1].length;
 
     printk("lowMemStart: %d, lowMemEnd: %d, highMemStart: %d. highMemEnd: %d\n", lowMemStart, lowMemEnd, highMemStart, highMemEnd);
    
-    nextFreePage = alignBy4096(kMaxAddress);
+    nextFreePage = 0;//alignBy4096(kMaxAddress);
     
     printk("nextFreePage: %d\n", nextFreePage);
     printk("parsing tags finished.\n");
@@ -164,6 +164,7 @@ void *MMU_pf_alloc(void) {
 
     if (nextFreePage > lowMemEnd && nextFreePage < highMemStart) {
         nextFreePage = alignBy4096(highMemStart);
+        //printk("skipping devices section\n");
     }
 
     if (allocatedPage < highMemEnd) {
@@ -176,6 +177,7 @@ void *MMU_pf_alloc(void) {
         if (head == 0) {
             // you're all out of pages.. yikes
             printk("you're all out of pages.. yikes\n");
+            return 0;
         }
         else {
 

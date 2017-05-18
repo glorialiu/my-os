@@ -15,7 +15,7 @@ tags:
     dw 0 
     
     mov [tags], ebx
-    
+
     mov esp, stack_top
 
     call check_multiboot
@@ -25,14 +25,19 @@ tags:
     call set_up_page_tables 
     call enable_paging  
 
+
+
     ; load the 64-bit GDT
-    lgdt [pointer]  
+    lgdt [pointer] 
+ 
 
     jmp gdt64.code:long_mode_start
 
     ; print `OK` to screen
     mov dword [0xb8000], 0x2f4b2f4f
     hlt
+
+
 
 
 ; Prints `ERR: ` and the given error code to screen and hangs.

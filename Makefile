@@ -19,8 +19,8 @@ src_dir := src/arch/$(arch)
 build_dir := build/arch/$(arch)
 
 c_files := $(src_dir)/kernel_main.c $(src_dir)/vga.c $(src_dir)/memfuncs.c
-o_files := $(build_dir)/vga.o $(build_dir)/kernel_main.o $(build_dir)/memfuncs.o $(build_dir)/inline_asm.o $(build_dir)/ps2.o $(build_dir)/interrupt.o $(build_dir)/serial.o $(build_dir)/page_alloc.o
-h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h $(src_dir)/inline_asm.h $(src_dir)/ps2.h $(src_dir)/interrupt.h $(src_dir)/serial.h $(src_dir)/page_alloc.h
+o_files := $(build_dir)/vga.o $(build_dir)/kernel_main.o $(build_dir)/memfuncs.o $(build_dir)/inline_asm.o $(build_dir)/ps2.o $(build_dir)/interrupt.o $(build_dir)/serial.o $(build_dir)/page_alloc.o $(build_dir)/page_table.o
+h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h $(src_dir)/inline_asm.h $(src_dir)/ps2.h $(src_dir)/interrupt.h $(src_dir)/serial.h $(src_dir)/page_alloc.h $(src_dir)/page_table.h
 
 .PHONY: all clean run iso
 
@@ -86,5 +86,9 @@ $(build_dir)/serial.o: $(src_dir)/serial.c $(src_dir)/serial.h
 	$(CC) -c $< -o $@ $(FLAGS)
 
 $(build_dir)/page_alloc.o: $(src_dir)/page_alloc.c $(src_dir)/page_alloc.h
+	mkdir -p $(shell dirname $@)
+	$(CC) -c $< -o $@ $(FLAGS)
+
+$(build_dir)/page_table.o: $(src_dir)/page_table.c $(src_dir)/page_table.h
 	mkdir -p $(shell dirname $@)
 	$(CC) -c $< -o $@ $(FLAGS)

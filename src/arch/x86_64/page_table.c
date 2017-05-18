@@ -1,12 +1,15 @@
 #include "page_table.h"
 #include "page_alloc.h"
-#include "mem_funcs.h"
-
+#include "memfuncs.h"
+#include "inline_asm.h"
+#include "vga.h"
 
 #define NUM_PML4_ENTRIES 1
 #define NUM_PDP_ENTRIES NUM_PML4_ENTRIES * 512
 #define NUM_PD_ENTRIES NUM_PDP_ENTRIES * 512
 #define NUM_PT_ENTRIES NUM_PD_ENTRIES * 512
+
+#define NUM_PAGES_IDENTITY_MAPPED 5120
 
 #define BOTTOM_9BIT_MASK 511
 #define BOTTOM_12BIT_MASK 0xFFF
@@ -15,143 +18,198 @@
 #define ENTRY_SIZE 8
 
 #define PAGE_SIZE 4096
+#define NUM_STACK_PAGES 512
+
+
 static void *physicalPFStart = (void *)  0x0;
 
-static void *kStackStart = (void *) 0x10000000000;
+static void *kStackEnd = (void *) 0x8000000;
 
-static void *kHeapStart = (void *) 0xF0000000000;
-static void *kHeapEnd = (void *) 0xF0000000000;
+static void *kHeapEnd = (void *) 0x400000000;
 
-static void *userSpaceStart = (void *) 0x100000000000;
-
-
-PML4 pml_table[NUM_PML4_ENTRIES];
-PDP pdp_table[NUM_PDP_ENTRIES];
-PD pd_table[NUM_PD_ENTRIES];
-PT pt_table[NUM_PT_ENTRIES];
-
-void ptable_init() {
-    //memset pml_table, pdp_table, etc to zeroes
-    memset(pml_table, 0, NUM_PML4_ENTRIES * ENTRY_SIZE);
-    memset(pdp_table, 0, NUM_PDP_ENTRIES * ENTRY_SIZE);
-    memset(pd_table, 0, NUM_PD_ENTRIES * ENTRY_SIZE);
-    memset(pt_table, 0, NUM_PT_ENTRIES * ENTRY_SIZE);
+static void *userSpaceEnd = (void *) 0x800000000;
 
 
-    // TODO: identity paging. done, but how exactly does this work? we didnt MMU_alloc pages, where were these pages "reserved"? in boot.asm?
-    setup_idpaging();
+void ptable_init(page_table *pt_start) {
 
-    // TODO: load page table into CR3, do other set up necessary to load a page table?
+    pt_start = (PML4 *) MMU_pf_alloc();
+    PDP *id_pdp = (PDP *) MMU_pf_alloc();
+    PD *id_pd = (PD *) MMU_pf_alloc();
 
-    
-}
+    memset(pt_start, 0, ENTRY_SIZE * 512);
+    memset(id_pdp, 0, ENTRY_SIZE * 512);
+    memset(id_pd, 0 , ENTRY_SIZE * 512);
+ 
+    // setting first PML4 block
+    pt_start->p = 1;
+    pt_start->rw = 1;
+    pt_start->us = 1;
+    pt_start->base_address = (uint64_t) id_pdp >> 12;
 
-void setup_idpaging() {
-    pml_table[0] = 7; //shortcut to setup bottom 3 bits
-    pdp_table[0] = 7;
-    pd_table[0] = 7;
+    // setting first PDP block
+    id_pdp->p = 1;
+    id_pdp->rw = 1;
+    id_pdp->us = 1;
+    id_pdp->base_address = (uint64_t) id_pd >> 12;
 
-    int i = 0;
-    int page_addr = 0;
+    // set entire page of PD blocks
+    int i;
+    int j;
+    uint64_t *temp_pt;
+    int id_map = 0;
 
-    for (i = 0; i < NUM_PAGES_IDENTITY_MAPPED; i++) {
-        pt_table[i] = page_addr | 7;
-        page_addr+=PAGE_SIZE; //PAGE_SIZE is 4096 
+    for (i = 0; i < 64; i++) {
+        id_pd->p = 1;
+        id_pd->rw = 1;
+        id_pd->us = 1;
+
+        //make each block "point" to a new page
+        id_pd->base_address = (uint64_t) MMU_pf_alloc() >> 12;
+
+        //iterate through page of pt entries
+        temp_pt =(uint64_t *) (id_pd->base_address << 12);
+
+        for (j = 0; j < 512; j++) {
+            
+            *temp_pt = id_map | 7;
+            id_map += PAGE_SIZE;
+            temp_pt++;
+        }
+        id_pd++;
     }
-   
+    
+
+    /*
+    int loop = 1;
+
+    while (loop) {
+
+    }*/
+
+    uint64_t ptr = (uint64_t) pt_start;
+
+    printk("about to load cr3\n");
+    load_cr3(ptr);
+    printk("loaded cr3 successfully\n");
     
 }
 
-void setup_page(void *addr) {
+
+
+void setup_pages(void *addr, int numPages, page_table *pt) {
+    int i = 0;
     uint64_t address = (uint64_t) addr;
     
+    for (i = 0; i < numPages; i++) {
+        setup_page((void*) address, pt);
+        address += PAGE_SIZE;
+    }
+}
+
+void setup_page(void *addr, page_table *pt) {
+    uint64_t address = (uint64_t) addr;
 
     int pmlIdx = (address >> 39 & BOTTOM_9BIT_MASK);
     int pdpIdx = (address >> 30 & BOTTOM_9BIT_MASK);
     int pdIdx = (address >> 21 & BOTTOM_9BIT_MASK);
     int ptIdx = (address >> 12 & BOTTOM_9BIT_MASK);
-    int pageOffset = (address & BOTTOM_12BIT_MASK)
+    int pageOffset = (address & BOTTOM_12BIT_MASK);
 
-    int pmlRealIdx = pmlIdx;
-    int pdpRealIdx = pmlRealIdx * 512;
-    int pdRealIdx = pdpRealIdx * 512;
-    int ptRealIdx = pdRealIdx * 512;
+    PML4 *pml_entry;
+    PDP *pdp_entry;
+    PD *pd_entry;
+    PT *pt_entry;
 
-    uint64_t pmlAddress = (uint64_t) pml_table;
-    uint64_t pdpAddress = (uint64_t) pdp_table + pdpRealIdx;
-    uint64_t pdAddress = (uint64_t) pd_table + pdRealIdx;
-    uint64_t ptAddress = (uint64_t) pt_table + ptReadIdx;
+    pml_entry = get_PML4(pmlIdx, pt);
+    if (pml_entry->p != 1) {
+        pml_entry->p = 1;
+        pml_entry->rw = 1;
+        pml_entry->us = 1;
+        pml_entry->base_address = (uint64_t) MMU_pf_alloc() >> 12;
+    }
+
+    pdp_entry = get_PDP(pml_entry, pdpIdx);
+    if (pdp_entry-> p != 1) {
+        pdp_entry->p = 1;
+        pdp_entry->rw = 1;
+        pdp_entry->us = 1;
+        pdp_entry->base_address = (uint64_t) MMU_pf_alloc() >> 12;        
+    }
+
+    pd_entry = get_PD(pdp_entry, pdIdx);
+    if (pd_entry-> p != 1) {
+        pd_entry->p = 1;
+        pd_entry->rw = 1;
+        pd_entry->us = 1;
+        pd_entry->base_address = (uint64_t) MMU_pf_alloc() >> 12;        
+    }
+
+    pt_entry = get_PT(pd_entry, ptIdx);
+    //set up the page table entry
+    pt_entry->rw = 1;
+    pt_entry->us = 1;
+    pt_entry->demand = 1;
 
 
-    //important bits -> present, address, user/supervisor, r/w bit
-    PML4 *newPml = pml_table[pmlRealIdx];
-    newPml->p = 1; // it is present
-    newPml->rw = 1; //has read AND write access
-    newPml->us = 1; // user mode code can access it
-    newPml->base_address = pdpAddress & BOTTOM_40BIT_MASK; //putting address of next entry ( a PDP entry) it points to
 
-    PDP *newPdp = pdp_table[pdpRealIdx];
-    newPdp->p = 1; 
-    newPdp->rw = 1; 
-    newPdp->us = 1; 
-    newPdp->base_address = pdAddress & BOTTOM_40BIT_MASK;
+}
+
+PML4 *get_PML4(int offset, page_table *pt_start) {
+    return pt_start + offset;
+}
+
+PDP *get_PDP(PML4 *pml4_entry, int offset) {
+    PDP *temp = (PDP *) (pml4_entry->base_address << 12);
     
-    PD *newPd = pd_table[pdReadIdx];
-    newPd->p = 1; 
-    newPd->rw = 1; 
-    newPd->us = 1; 
-    newPd->base_address = ptAddress & BOTTOM_40BIT_MASK;
+    return temp + offset;
+}
 
-    PT *newPt = pt_table[ptRealIdx];
-    newPt->p = 1; 
-    newPt->rw = 1; 
-    newPt->us = 1; 
-    //demand paging
-    newPt->demand = 1;
+PD *get_PD(PDP *pdp_entry, int offset) {
+    PD *temp = (PD *) (pdp_entry->base_address << 12);
+    
+    return temp + offset;
+}
 
-
-
-    //allocate a physical page frame 
-    //physPage = MMU_pf_alloc();
-    //newPt->base_address = (uint64_t) physPage & BOTTOM_40BIT_MASK;
-
+PT *get_PT(PD *pd_entry, int offset) {
+    PT *temp = (PT *) (pd_entry->base_address << 12);
+    
+    return temp + offset;
 }
 
 //walk the page table to return the correct page table entry for the address
 
 //also check if valid
-PT *return_pt_entry(void *addr) {
+PT *return_pt_entry(void *addr, page_table *pt) {
     uint64_t address = (uint64_t) addr;
-    
 
     int pmlIdx = (address >> 39 & BOTTOM_9BIT_MASK);
     int pdpIdx = (address >> 30 & BOTTOM_9BIT_MASK);
     int pdIdx = (address >> 21 & BOTTOM_9BIT_MASK);
     int ptIdx = (address >> 12 & BOTTOM_9BIT_MASK);
-    int pageOffset = (address & BOTTOM_12BIT_MASK)
+    int pageOffset = (address & BOTTOM_12BIT_MASK);
 
-    int pmlRealIdx = pmlIdx;
-    int pdpRealIdx = pmlRealIdx * 512;
-    int pdRealIdx = pdpRealIdx * 512;
-    int ptRealIdx = pdRealIdx * 512;
 
-    //should i use address or index to get the page table entry?
-    /*
-    uint64_t pmlAddress = (uint64_t) pml_table;
-    uint64_t pdpAddress = (uint64_t) pdp_table + pdpRealIdx;
-    uint64_t pdAddress = (uint64_t) pd_table + pdRealIdx;
-    uint64_t ptAddress = (uint64_t) pt_table + ptReadIdx;
-    */
+    PML4 *pml_entry;
+    PDP *pdp_entry;
+    PD *pd_entry;
+    PT *pt_entry;
 
-    PML4 *pml_entry = pml_table[pmlRealIdx];
-    PDP *pdp_entry = pdp_table[pdpRealIdx];
-    PD *pd_entry = pd_table[pdReadIdx];
-    PT *pt_entry = pt_table[ptRealIdx];
-
-    //check if they're all present
-    if(!(pml_entry->p && pdp_entry->p && pd_entry->p && pt_entry->p)) {
+    pml_entry = get_PML4(pmlIdx, pt);
+    if (pml_entry->p != 1) {
         unresolved_pf();
     }
+
+    pdp_entry = get_PDP(pml_entry, pdpIdx);
+    if (pdp_entry-> p != 1) {
+        unresolved_pf();       
+    }
+
+    pd_entry = get_PD(pdp_entry, pdIdx);
+    if (pd_entry-> p != 1) {
+        unresolved_pf();    
+    }
+
+    pt_entry = get_PT(pd_entry, ptIdx);
 
     //do we need to check r/w?
     //eventually do something with user mode?
@@ -160,80 +218,92 @@ PT *return_pt_entry(void *addr) {
 }
 
 void unresolved_pf() {
-    //TODO: get what its in CR2        
-    faultCause = %CR2;
+    uint64_t faultCause = read_cr2();
     printk("PAGE FAULT (UNRESOLVED): %d\n", (int) faultCause);
     asm volatile("hlt");
 }
 
-void page_fault_handler(void *addr) {
+void page_fault_handler(void *addr, page_table *pt) {
     uint64_t faultAddr = (uint64_t) addr;
 
-    void *physPage;
-
-    uint64_t faultCause;
-
-    //walk page table to find pt entry, set to entry
-    //return_pt_entry will check the pt entry for errors internally
-    PT *entry = return_pt_entry(addr); 
-
+    //walk page table to return pt entry
+    //return_pt_entry will check the pt entry for errors in page table levels internally
+    PT *entry = return_pt_entry(addr, pt); 
 
     if (entry->demand == 1) {
-        physPage = MMU_pf_alloc();
         entry->demand = 0;
-        entry->base_address = (uint64_t) physPage & BOTTOM_40BIT_MASK;
+        entry->base_address = (uint64_t) MMU_pf_alloc() >> 12; //& BOTTOM_40BIT_MASK; //address fitting into fields.. TODO: fix this when my brain is working better
     }
     else {
-        unresolved_pf()
+        unresolved_pf();
     }
 }
 
 
-void *alloc_heap_vpage(void) {
+void *alloc_heap_vpage(page_table *pt) {
     void *addr = kHeapEnd;
-    kHeapEnd += 4096;
-    setup_page(addr);
+    kHeapEnd += PAGE_SIZE;
+    setup_page(addr, pt);
 
     return addr;
 }
 
-//TODO: write other funcs 
-
-void *alloc_stack_vpage(void) {
+void *alloc_stack_vpage(page_table *pt) {
     //each stack is >=2MB
+
+    void *addr = kStackEnd;
+    kStackEnd += NUM_STACK_PAGES * PAGE_SIZE;
+    setup_pages(addr, NUM_STACK_PAGES, pt);
+
+    return addr;
 }
 
-void *alloc_user_vpage(void) {
+void *alloc_user_vpage(page_table *pt) {
+    void *addr = userSpaceEnd;
+    userSpaceEnd += PAGE_SIZE;
+    setup_page(addr, pt);
+
+    return addr;   
+}
+
+
+void MMU_free_page(void *addr, page_table *pt) {
+    PT *pt_entry = return_pt_entry(addr, pt);
+
+    pt_entry->p = 0;
+    pt_entry->demand = 0;
+}
+
+void MMU_free_pages(void *addr, int num, page_table *pt) {
+    uint64_t address = (uint64_t) addr;
+    int i = 0;
+
+    for (i=0 ;i < num; i++) {
+        MMU_free_page((void *)address, pt);
+        address += PAGE_SIZE;
+    }
     
 }
 
-//TODO: free pages
-
-//TODO: multi page allocation at once- how: just call the normal page alloc multiple times in a loop
-
-//TODO: write helper funcs to get specific entry type from an address:
-
-//PDP *get_PDP(void *addr)
-//PD *get_PD(void *addr)
-//etc
-
-
+/*
 //TODO: free the page table!
-
 void free_pt(PML4 *pml_entry) {
     PDP *pdp_entry;
     PD *pd_entry;
     PT *pt_entry;
 
-    pdp_entry = (PDP *) pml_entry->base_addr;
-    pd_entry = (PD *) pdp_entry->base_addr;
-    pt_entry = (PT *) pt_entry->base_addr;
+    //TODO: bottom 12 bits something??
+
+    pdp_entry = (PDP *) (uint64_t) pml_entry->base_address << 12;
+    pd_entry = (PD *) (uint64_t) pdp_entry->base_address << 12;
+    pt_entry = (PT *) (uint64_t) pt_entry->base_address << 12;
     
     //free yet to be implemented
-    /*
+    
     free(pt_entry);
     free(pd_entry);
     free(pdp_entry);
     free(pt_entry);
-    */
+    
 }
+*/

@@ -4,6 +4,7 @@
 #include "serial.h"
 #include "memfuncs.h"
 #include "page_alloc.h"
+#include "page_table.h"
 
 /*
 void printk_tests() {
@@ -62,10 +63,42 @@ void continuous_polling() {
     }
 }
 
+void write_to_page(void *ptr) {
+    
+    uint64_t address = (uint64_t) ptr;
+
+    uint64_t *writePtr = (uint64_t *) ptr;
+
+    int i = 0;
+    
+    for (i = 0; i < 512; i++) {
+        *writePtr = address;
+        writePtr++;
+    }
+}
+
+int check_page(void *ptr) {
+    uint64_t address = (uint64_t) ptr;
+
+    uint64_t *readPtr = (uint64_t *) ptr;
+
+    int i = 0;
+    
+    for (i = 0; i < 512; i++) {
+        if (*readPtr != address) {
+            return FALSE;
+        }
+        readPtr++;
+    }
+    return TRUE;
+}
+
 //implement a tab as 4 spaces?
 void kmain(int tagPtr) {
 
     VGA_clear();
+
+
     change_text_color(OCEAN_BLUE);
 
     ps2_initialize();
@@ -76,28 +109,38 @@ void kmain(int tagPtr) {
 
     uint64_t tags = tagPtr & 0xFFFFFFFF;
 
-
-
-    
     idt_init();
     sti();
-    
-    parse_tags(tags);
 
+    parse_tags(tags);
+   
+  /*
     void *temp = MMU_pf_alloc();
     void *temp2 = MMU_pf_alloc();
     void *temp3 = MMU_pf_alloc();
 
-/*
+    write_to_page(temp);
+    printk("result: %d\n", check_page(temp));
+
+    write_to_page(temp2);
+    printk("result: %d\n", check_page(temp2));
+
+    write_to_page(temp3);
+    printk("result: %d\n", check_page(temp3));
+
+    void *ptr;
+
+
     int i = 0;
     for (i = 0; i < 32736 + 10; i++) {
         //printk("%d pages allocated\n", i + 1);
-        MMU_pf_alloc();
+        ptr = MMU_pf_alloc();
+
+        if (ptr) {
+            write_to_page(ptr);
+            printk("result: %d\n", check_page(ptr));
+        }
     }
-*/
-
-
-
     MMU_pf_free(temp);
     MMU_pf_free(temp2);
     MMU_pf_free(temp3);
@@ -106,9 +149,14 @@ void kmain(int tagPtr) {
     MMU_pf_alloc();
     MMU_pf_alloc();
 
+*/
 
-  
-    printk("finished allocating\n");
+    printk("about to init page table\n");
+    
+    page_table pt;
+
+    ptable_init(&pt);
+
 
     // printk_tests();
     //SER_write("hi", 3);
