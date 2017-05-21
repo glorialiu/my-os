@@ -29,12 +29,37 @@ static void *kHeapEnd = (void *) 0x400000000;
 
 static void *userSpaceEnd = (void *) 0x800000000;
 
+page_table *pt_temp;
 
-void ptable_init(page_table *pt_start) {
+// my implementation of kSbrk
+// returns the current end of kHeap if numBytes param == 0
+// otherwise, returns the new end of kHeap
+uint64_t ksbrk(int numBytes) {
+    int numPages;  
+
+    if (numBytes != 0) {
+        // add one just in case of decimal
+        numPages = numBytes / PAGE_SIZE + 1; 
+        page_table *cr3 = (page_table *) read_cr3();
+        alloc_heap_vpages(cr3, numPages);
+    }
+
+    return (uint64_t) kHeapEnd;
+}
+
+void *ptable_init(page_table *pt_start) {
+    
+    //int loop = 1;
+    //while (loop) {
+
+    //}
+
 
     pt_start = (PML4 *) MMU_pf_alloc();
     PDP *id_pdp = (PDP *) MMU_pf_alloc();
     PD *id_pd = (PD *) MMU_pf_alloc();
+
+    pt_temp = pt_start;
 
     memset(pt_start, 0, ENTRY_SIZE * 512);
     memset(id_pdp, 0, ENTRY_SIZE * 512);
@@ -91,7 +116,7 @@ void ptable_init(page_table *pt_start) {
     printk("about to load cr3\n");
     load_cr3(ptr);
     printk("loaded cr3 successfully\n");
-    
+    return pt_start;
 }
 
 
@@ -119,6 +144,12 @@ void setup_page(void *addr, page_table *pt) {
     PDP *pdp_entry;
     PD *pd_entry;
     PT *pt_entry;
+    
+    /*
+    int loop = 1;
+    while (loop) {
+
+    }*/
 
     pml_entry = get_PML4(pmlIdx, pt);
     if (pml_entry->p != 1) {
@@ -151,6 +182,8 @@ void setup_page(void *addr, page_table *pt) {
     pt_entry->demand = 1;
 
 
+    //dont actually allocate
+
 
 }
 
@@ -159,9 +192,9 @@ PML4 *get_PML4(int offset, page_table *pt_start) {
 }
 
 PDP *get_PDP(PML4 *pml4_entry, int offset) {
-    PDP *temp = (PDP *) (pml4_entry->base_address << 12);
+    PDP *temp = (PDP *) ((pml4_entry->base_address << 12) + offset);
     
-    return temp + offset;
+    return temp;
 }
 
 PD *get_PD(PDP *pdp_entry, int offset) {
@@ -200,12 +233,12 @@ PT *return_pt_entry(void *addr, page_table *pt) {
     }
 
     pdp_entry = get_PDP(pml_entry, pdpIdx);
-    if (pdp_entry-> p != 1) {
+    if (pdp_entry->p != 1) {
         unresolved_pf();       
     }
 
     pd_entry = get_PD(pdp_entry, pdIdx);
-    if (pd_entry-> p != 1) {
+    if (pd_entry->p != 1) {
         unresolved_pf();    
     }
 
@@ -219,20 +252,37 @@ PT *return_pt_entry(void *addr, page_table *pt) {
 
 void unresolved_pf() {
     uint64_t faultCause = read_cr2();
-    printk("PAGE FAULT (UNRESOLVED): %d\n", (int) faultCause);
+    /*
+    int loop = 1;
+    while(loop) {
+    }
+    */
+    printk("PAGE FAULT (UNRESOLVED): %x\n", faultCause);
     asm volatile("hlt");
 }
 
-void page_fault_handler(void *addr, page_table *pt) {
-    uint64_t faultAddr = (uint64_t) addr;
+void page_fault_handler(int num, int error, void *arg) {
+    uint64_t addr = read_cr2();
+  
+    int loop = 1;
+    while(loop) {
+    }
 
+
+
+    printk("error code %d\n", error);
+    printk("%x caused page fault\n", addr);
     //walk page table to return pt entry
     //return_pt_entry will check the pt entry for errors in page table levels internally
-    PT *entry = return_pt_entry(addr, pt); 
+    uint64_t cr3 = read_cr3();
 
+    PT *entry = return_pt_entry((void *) addr, cr3); 
+    
     if (entry->demand == 1) {
+        printk("allocating on demand\n");
         entry->demand = 0;
-        entry->base_address = (uint64_t) MMU_pf_alloc() >> 12; //& BOTTOM_40BIT_MASK; //address fitting into fields.. TODO: fix this when my brain is working better
+        entry->p = 1;
+        entry->base_address = (uint64_t) MMU_pf_alloc() >> 12; 
     }
     else {
         unresolved_pf();
@@ -247,6 +297,15 @@ void *alloc_heap_vpage(page_table *pt) {
 
     return addr;
 }
+
+void *alloc_heap_vpages(page_table *pt, int numPages) {
+    void *addr = kHeapEnd;
+    kHeapEnd += PAGE_SIZE * numPages;
+    setup_pages(addr, numPages, pt);
+
+    return addr;
+}
+
 
 void *alloc_stack_vpage(page_table *pt) {
     //each stack is >=2MB

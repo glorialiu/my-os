@@ -75,13 +75,13 @@ typedef struct PT {
     uint64_t nx:1;
 } __attribute__((packed)) PT;
 
-void ptable_init(page_table *pt);
+void *ptable_init(page_table *pt);
 void setup_page(void *addr, page_table *pt);
 void setup_pages(void *addr, int numPages, page_table *pt);
 
 PT *return_pt_entry(void *addr, page_table *pt);
 void unresolved_pf();
-void page_fault_handler(void *addr, page_table *pt);
+extern void page_fault_handler(int num, int error, void *arg);
 
 PML4 *get_PML4(int, page_table *);
 PDP *get_PDP(PML4 *entry, int);
@@ -91,6 +91,7 @@ PT *get_PT(PD* entry,int);
 //void free_pt(PML4 *pml_entry);
 
 extern void *alloc_heap_vpage(page_table *pt);
+extern void *alloc_heap_vpages(page_table *pt, int numPages);
 extern void *alloc_stack_vpage(page_table *pt);
 void *alloc_user_vpage(page_table *pt);
 
@@ -99,6 +100,8 @@ extern void *free_pages(void *address, int num);
 
 extern void MMU_free_page(void *addr, page_table *pt);
 extern void MMU_free_pages(void *addr, int num, page_table *pt);
+
+extern uint64_t ksbrk(int numBytes);
 
 
 

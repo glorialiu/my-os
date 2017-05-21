@@ -23,3 +23,5 @@ extern void interrupt(uint16_t num);
 extern uint64_t read_cr2(void);
 
 extern void load_cr3(uint64_t newReg);
+
+extern uint64_t read_cr3(void);

@@ -29,12 +29,21 @@ void new_text_color() {
     COLOR = COLOR + 1;
 }
 
-char * toHex(unsigned input) {
-    char *output = "00000000";
+char * toHex(long input) {
+
+    //uint64_t test = input;
+    //char *output = "00000000";
+
+    /*
+    int loop = 1;
+    while (loop) {
+
+    }*/
+    char *output = "000000000000";
 
     static char HEX_ARRAY[] = "0123456789ABCDEF";
 
-    int idx = 7;
+    int idx = 11;
 
     while (input > 0) {
         output[idx--] = HEX_ARRAY[(input & 0xF)];
@@ -44,7 +53,9 @@ char * toHex(unsigned input) {
 
     int i = 0;
 
-    for (i = 0; i < 8; i++) {
+    
+    for (i = 0; i < 12; i++) {
+
         if (*output != '0') {
             break;
         }
@@ -52,6 +63,7 @@ char * toHex(unsigned input) {
             output++;
         }
     }
+
 
     return output;
 }
@@ -159,6 +171,8 @@ int printk(const char *fmt, ...) {
     // -negative numbers?
     // -how to print in x
 
+    int loop = 1;
+
     while (*fmt) {
         if (*fmt == '%') {
             switch(*++fmt) {
@@ -173,6 +187,10 @@ int printk(const char *fmt, ...) {
                     print_str(va_arg(params, char *));
                     break;
                 case 'x':
+                    /*
+                    while (loop) {
+
+                    }*/
                     print_long_hex(va_arg(params, long));
                     break;
                 case 'd':
@@ -342,7 +360,8 @@ void print_short(short sh) {
 }
 
 void print_long_hex(long l) {
-    print_str(toHex(l));
+    char *temp = toHex(l);
+    print_str(temp);
 }
 
 void print_long(long l) {

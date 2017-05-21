@@ -155,8 +155,23 @@ void kmain(int tagPtr) {
     
     page_table pt;
 
-    ptable_init(&pt);
+    page_table *pt_ptr;
+    pt_ptr = (page_table *) ptable_init(&pt);
+    /*
+    int loop = 1;
+    while(loop) {
+    }
+    */
 
+    int * testv = (int *) alloc_heap_vpage(pt_ptr);
+    /*
+    int loop = 1;
+    while(loop) {
+    }
+    */
+
+   // printk("pointer is %d\n", testv);
+    //*testv = 1;
 
     // printk_tests();
     //SER_write("hi", 3);

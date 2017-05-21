@@ -61,7 +61,7 @@ void parse_tags(int tagPtr) {
     elf_section_header *section_iter;
 
     int totalSize = curTag->type;
-    printk("tag size: %d\n", totalSize);
+   // printk("tag size: %d\n", totalSize);
 
     curTag++;
 
@@ -79,7 +79,7 @@ void parse_tags(int tagPtr) {
            
             while ((char *) entry_iter < ((char *) curTag + curTag->size)) {
                 
-               printk("type: %d, base_addr: %d, length: %d\n", entry_iter->type, (int)entry_iter->base_addr, (int) entry_iter->length);
+               //printk("type: %d, base_addr: %d, length: %d\n", entry_iter->type, (int)entry_iter->base_addr, (int) entry_iter->length);
 
                 if (entry_iter->type == 1) {
                     zones[zIdx].base = (int) entry_iter->base_addr;
@@ -104,7 +104,7 @@ void parse_tags(int tagPtr) {
 
             for (idx = 0; idx < numEntries; idx++) {
 
-                printk("section header type: %x, load address: %d, size: %d\n", section_iter->type, section_iter->address, section_iter->size);
+                //printk("section header type: %x, load address: %d, size: %d\n", section_iter->type, section_iter->address, section_iter->size);
 
 
                 if (kMinAddress > section_iter->address) {
@@ -116,7 +116,7 @@ void parse_tags(int tagPtr) {
                 section_iter++;
             }
 
-            printk("min: %d, max: %d\n", kMinAddress, kMaxAddress);
+           // printk("min: %d, max: %d\n", kMinAddress, kMaxAddress);
             
         }
 
@@ -136,11 +136,11 @@ void parse_tags(int tagPtr) {
     highMemStart = zones[1].base + kMaxAddress;
     highMemEnd = zones[1].base + zones[1].length;
 
-    printk("lowMemStart: %d, lowMemEnd: %d, highMemStart: %d. highMemEnd: %d\n", lowMemStart, lowMemEnd, highMemStart, highMemEnd);
+    //printk("lowMemStart: %d, lowMemEnd: %d, highMemStart: %d. highMemEnd: %d\n", lowMemStart, lowMemEnd, highMemStart, highMemEnd);
    
     nextFreePage = 0;//alignBy4096(kMaxAddress);
     
-    printk("nextFreePage: %d\n", nextFreePage);
+   // printk("nextFreePage: %d\n", nextFreePage);
     printk("parsing tags finished.\n");
 
 
@@ -169,7 +169,8 @@ void *MMU_pf_alloc(void) {
 
     if (allocatedPage < highMemEnd) {
         //printk("high mem end: %d\n", highMemEnd);
-        printk("allocated page is %d\n", (int) allocatedPage);
+        printk("allocated page is %d\n", allocatedPage);
+        //printk("allocated page is %p\n", allocatedPage);
         return (void *) allocatedPage;
     }    
     else {

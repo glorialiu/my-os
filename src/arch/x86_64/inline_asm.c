@@ -71,6 +71,13 @@ inline uint64_t read_cr2(void) {
 inline void load_cr3(uint64_t newReg) {
     asm volatile ("mov %0, %%cr3"::"r"(newReg));
 }
+
+inline uint64_t read_cr3(void) {
+    uint64_t val;
+    asm volatile ("mov %%cr3, %0" : "=r" (val));
+    return val;
+}
+
 /*
 inline void set_kcs(int CS_start) {
     asm volatile (

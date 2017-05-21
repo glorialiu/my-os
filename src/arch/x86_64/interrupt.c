@@ -1,6 +1,7 @@
 #include "interrupt.h"
 #include "vga.h"
 #include "serial.h"
+#include "page_table.h"
 
 #define PIC1 0x20
 #define PIC2 0xA0
@@ -146,27 +147,27 @@ void segment_np_handler(int num, int error, void *arg) {
 
 void df_handler(int num, int error, void *arg) {
     printk("EXCEPTION: DOUBLE FAULT OCCURRED.\n");
-    int test = 10;
-    printk("address: %p\n", &test);
+    //int test = 10;
+    //printk("address: %p\n", &test);
     asm volatile("hlt");
 
     
 }
 
 void pf_handler(int num, int error, void *arg) {
-
-    printk("EXCEPTION: PAGE FAULT OCCURRED.\n");
-    int test = 10;
-    printk("address: %p\n", &test);
-    asm volatile("hlt");
+    page_fault_handler();
+    //printk("EXCEPTION: PAGE FAULT OCCURRED.\n");
+    //int test = 10;
+    //printk("address: %p\n", &test);
+    //asm volatile("hlt");
     
 }
 
 void dummy_handler(int num, int error, void *arg) {
     printk("DUMMY HANDLER\n");
     
-    int test = 10;
-    printk("address: %p\n", &test);
+  //  int test = 10;
+   // printk("address: %p\n", &test);
     //uint64_t ptr = 0xFFFFFFFF;
     //int nope = * (char* ) ptr;
 }
@@ -186,8 +187,8 @@ void gpf_handler(int num, int error, void *arg) {
     printk("EXCEPTION: GENERAL PROTECTION FAULT. Error code %d.\n", error);
     error_code_print(error);
 
-    int test = 10;
-    printk("address: %p\n", &test);
+   // int test = 10;
+  //  printk("address: %p\n", &test);
     asm volatile("hlt");
 }
 
@@ -239,10 +240,11 @@ void TSS_init() {
     ts_segment.interrupt_st2 = (uint64_t) &DF_stack[STACK_SIZE - 8];
     ts_segment.interrupt_st3 = (uint64_t) &PF_stack[STACK_SIZE - 8];
 
-    
+    /*
     printk("gpf stack: %p\n", &GPF_stack[STACK_SIZE - 1]);
     printk("df stack: %p\n",  &DF_stack[STACK_SIZE - 1]);
     printk("pf stack: %p\n",  &PF_stack[STACK_SIZE - 1]);
+    */
 
     //need to do i/o field?
     ts_segment.io_map = (uint64_t) &io_bitmap - (uint64_t) &ts_segment;
