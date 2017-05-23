@@ -2,6 +2,7 @@
 #include "vga.h"
 #include "serial.h"
 #include "page_table.h"
+#include "process.h"
 
 #define PIC1 0x20
 #define PIC2 0xA0
@@ -127,6 +128,11 @@ void idt_init() {
     IRQ_set_handler(0x24, serial_irq_handler, NULL);
     
 
+    // set handler for system calls
+    set_handler_in_IDT(&IDT_table[123], (uint64_t) &irq_handler123, KERNEL_SEGMENT, 0);
+    IRQ_set_handler(123, syscall_handler, NULL);
+    init_syscall_handler_table();
+
     TSS_init();
     ltr(TSS_SEGMENT);
 
@@ -155,7 +161,7 @@ void df_handler(int num, int error, void *arg) {
 }
 
 void pf_handler(int num, int error, void *arg) {
-    page_fault_handler();
+    page_fault_handler(num, error, arg);
     //printk("EXCEPTION: PAGE FAULT OCCURRED.\n");
     //int test = 10;
     //printk("address: %p\n", &test);
@@ -164,7 +170,9 @@ void pf_handler(int num, int error, void *arg) {
 }
 
 void dummy_handler(int num, int error, void *arg) {
-    printk("DUMMY HANDLER\n");
+    printk("DUMMY HANDLER: %d\n", num);
+
+    asm volatile("hlt");
     
   //  int test = 10;
    // printk("address: %p\n", &test);
@@ -215,13 +223,17 @@ void set_handler_in_IDT(IDT_entry *entry, uint64_t address, uint16_t segment, in
 }
 
 //interrupt entry point
-void irq_c_handler(int num, int error) {
+void irq_c_handler(int num, int error, int paramForSysCall) {
 
     IRQT *target = &irq_table[num];
 
     //printk("IRQ NUMBER: %d\n", num);
-
-    target->handler(num, error, NULL); 
+    if (num == 123) {
+        target->handler(num, error, &paramForSysCall);
+    }
+    else {
+        target->handler(num, error, NULL); 
+    }
     IRQ_end_of_interrupt(num);
 }
 void TSS_init() {

@@ -5,7 +5,8 @@
 #include "memfuncs.h"
 #include "page_alloc.h"
 #include "page_table.h"
-
+#include "process.h"
+#include "kmalloc.h"
 /*
 void printk_tests() {
     printk("******TEST SCRIPT FOR PRINTK******\n");
@@ -93,6 +94,10 @@ int check_page(void *ptr) {
     return TRUE;
 }
 
+void dummy_proc() {
+    printk("dummy proc called\n");
+}
+
 //implement a tab as 4 spaces?
 void kmain(int tagPtr) {
 
@@ -170,9 +175,25 @@ void kmain(int tagPtr) {
     }
     */
 
-   // printk("pointer is %d\n", testv);
-    //*testv = 1;
 
+    printk("pointer is %x\n", testv);
+    *testv = 1;
+
+    printk("value is %d\n", *testv);
+
+    int*testm = malloc(8);
+
+    int*testm1 = malloc(8);
+
+    *testm1 = 5;
+
+    printk("value should be 5: %d\n", *testm1);
+
+    /*
+    int loop = 1;
+    while(loop) {
+    }*/
+   
     // printk_tests();
     //SER_write("hi", 3);
 
@@ -202,9 +223,14 @@ void kmain(int tagPtr) {
   //  asm volatile("int $8"); //double fault
   //  asm volatile("int $14"); //page fault
 
+    
+//    kexit();
 
+    
+    
+    yield();
 
-  
+    PROC_create_kthread(&dummy_proc, NULL);
     
     printk("about to start polling\n");
     continuous_polling();

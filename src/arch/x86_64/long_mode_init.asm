@@ -6,6 +6,9 @@ extern idt_init
 
 extern irq_c_handler
 
+extern next_proc
+extern curr_proc
+
 global irq_gpf_handler
 global irq_pf_handler
 global irq_df_handler
@@ -388,7 +391,133 @@ common_irq_handler_2:
 
 
     call irq_c_handler
+
+    mov rcx, [next_proc]
+    mov rbx, [curr_proc]
+
+    cmp rcx, rbx
     
+    je no_swap_needed
+    ; else, do context swap
+
+    ; stack related stuff
+    mov rax, [rsp + 0x0] ;save r15
+    mov [rbx + 0x0], rax
+    mov rax, [rsp + 0x08] ;save r14
+    mov [rbx + 0x08], rax
+    mov rax, [rsp + 0x10] ;save r13
+    mov [rbx + 0x10], rax
+    mov rax, [rsp + 0x18] ;save r12
+    mov [rbx + 0x18], rax
+    mov rax, [rsp + 0x20] ;save r11
+    mov [rbx + 0x20], rax
+    mov rax, [rsp + 0x28] ;save r10
+    mov [rbx + 0x28], rax
+    mov rax, [rsp + 0x30] ;save r9
+    mov [rbx + 0x30], rax
+    mov rax, [rsp + 0x38] ;save r8
+    mov [rbx + 0x38], rax
+    mov rax, [rsp + 0x40] ;save rbp
+    mov [rbx + 0x40], rax
+    mov rax, [rsp + 0x48] ;save rdx
+    mov [rbx + 0x48], rax
+    mov rax, [rsp + 0x50] ;save rcx
+    mov [rbx + 0x50], rax
+    mov rax, [rsp + 0x58] ;save rbx
+    mov [rbx + 0x58], rax
+    mov rax, [rsp + 0x60] ;save rax
+    mov [rbx + 0x60], rax
+    mov rax, [rsp + 0x68] ;save rsi
+    mov [rbx + 0x68], rax
+    mov rax, [rsp + 0x70] ;save rdi
+    mov [rbx + 0x70], rax
+
+    ; others
+    mov [rbx + 0x88], ds
+    mov [rbx + 0x90], es
+    mov [rbx + 0x98], fs
+    mov [rbx + 0x100], gs
+
+    ;whats left, rsp, rip, flags to save. how? does it matter how i do this?
+    ; do this by going back to the stack
+    mov rax, [rsp + 0x78] ;save rip
+    mov [rbx + 0x110], rax
+
+    mov rax, [rsp + 0x80] ;save cs
+    mov [rbx + 0x78], rax
+
+    mov rax, [rsp + 0x88] ;save flags
+    mov [rbx + 0x118], rax
+
+    mov rax, [rsp + 0x90] ;save rsp
+    mov [rbx + 0x108], rax
+
+    mov rax, [rsp + 0x98] ;save ss
+    mov [rbx + 0x80], rax
+
+    
+    ; restore hw context
+    ; rcx is next_proc, rbx is curr_proc
+    ; stack related stuff
+    mov rax, [rcx + 0x0] ;load r15
+    mov [rsp + 0x0], rax
+    mov rax, [rcx + 0x08] ;load r14
+    mov [rsp + 0x08], rax
+    mov rax, [rcx + 0x10] ;load r13
+    mov [rsp + 0x10], rax
+    mov rax, [rcx + 0x18] ;load r12
+    mov [rsp + 0x18], rax
+    mov rax, [rcx + 0x20] ;load r11
+    mov [rsp + 0x20], rax
+    mov rax, [rcx + 0x28] ;load r10
+    mov [rsp + 0x28], rax
+    mov rax, [rcx + 0x30] ;load r9
+    mov [rsp + 0x30], rax
+    mov rax, [rcx + 0x38] ;load r8
+    mov [rsp + 0x38], rax
+    mov rax, [rcx + 0x40] ;load rbp
+    mov [rsp + 0x40], rax
+    mov rax, [rcx + 0x48] ;load rdx
+    mov [rsp + 0x48], rax
+    mov rax, [rcx + 0x50] ;load rcx
+    mov [rsp + 0x50], rax
+    mov rax, [rcx + 0x58] ;load rbx
+    mov [rsp + 0x58], rax
+    mov rax, [rcx + 0x60] ;load rax
+    mov [rsp + 0x60], rax
+    mov rax, [rcx + 0x68] ;load rsi
+    mov [rsp + 0x68], rax
+    mov rax, [rcx + 0x70] ;load rdi
+    mov [rsp + 0x70], rax
+   
+    ; others
+    mov ds, [rcx + 0x88]
+    mov es, [rcx + 0x90]
+    mov fs, [rcx + 0x98]
+    mov gs, [rcx + 0x100]
+
+
+    mov rax, [rcx + 0x110]; load rip
+    mov [rsp + 0x78], rax
+
+    mov rax, [rcx + 0x78] ;load cs
+    mov [rsp + 0x80], rax
+
+    mov rax, [rcx + 0x118];load flags
+    mov [rsp + 0x88], rax
+
+    mov rax, [rcx + 0x108] ;load rsp
+    mov [rsp + 0x90], rax
+
+    mov rax, [rcx + 0x80] ;load ss
+    mov [rsp + 0x98], rax
+    
+    ; set curr proc to next proc
+    mov [curr_proc], rcx
+    hlt
+
+no_swap_needed:    
+
     pop r15
     pop r14
     pop r13

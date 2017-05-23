@@ -14,7 +14,7 @@ extern void IRQ_clear_mask(unsigned char irq);
 extern int IRQ_get_mask(int IRQline);
 extern void IRQ_end_of_interrupt(int irq);
 
-void irq_c_handler(int num, int error);
+void irq_c_handler(int num, int error, int paramForSysCall);
 
 typedef void (*irq_handler_t)(int, int, void*);
 

@@ -9,14 +9,20 @@
 #define END_TYPE 0
 #define END_SIZE 8
 
-static int nextFreePage = 0;
+int nextFreePage = 0;
+int *nextFreePagePtr = &nextFreePage;
 
 uint64_t head = 0;
 
-static int highMemStart = 0;
-static int highMemEnd = 20;
-static int lowMemStart = 0;
-static int lowMemEnd = 0;
+int highMemStart = 0;
+int highMemEnd = 20;
+int lowMemStart = 0;
+int lowMemEnd = 0;
+
+int *highMemStartPtr = &highMemStart;
+int *highMemEndPtr = &highMemEnd;
+int *lowMemStartPtr = &lowMemStart;
+int *lowMemEndPtr = &lowMemEnd;
 
 int alignBy8(int num) {
 
@@ -79,7 +85,7 @@ void parse_tags(int tagPtr) {
            
             while ((char *) entry_iter < ((char *) curTag + curTag->size)) {
                 
-               //printk("type: %d, base_addr: %d, length: %d\n", entry_iter->type, (int)entry_iter->base_addr, (int) entry_iter->length);
+               //printk("type: %x, base_addr: %x, length: %x\n", entry_iter->type, (int)entry_iter->base_addr, (int) entry_iter->length);
 
                 if (entry_iter->type == 1) {
                     zones[zIdx].base = (int) entry_iter->base_addr;
@@ -104,7 +110,7 @@ void parse_tags(int tagPtr) {
 
             for (idx = 0; idx < numEntries; idx++) {
 
-                //printk("section header type: %x, load address: %d, size: %d\n", section_iter->type, section_iter->address, section_iter->size);
+                //printk("section header type: %d, load address: %d, size: %d\n", section_iter->type, section_iter->address, section_iter->size);
 
 
                 if (kMinAddress > section_iter->address) {
@@ -116,7 +122,7 @@ void parse_tags(int tagPtr) {
                 section_iter++;
             }
 
-           // printk("min: %d, max: %d\n", kMinAddress, kMaxAddress);
+            //printk("min: %d, max: %x\n", kMinAddress, kMaxAddress);
             
         }
 
@@ -128,20 +134,26 @@ void parse_tags(int tagPtr) {
 
     int i = 0;
     for (i = 0; i < zIdx; i++) {
-        printk("base: %d, length: %d\n", zones[i].base, zones[i].length);
+        //printk("base: %x, length: %x\n", zones[i].base, zones[i].length);
     }
     
-    lowMemStart = zones[0].base;
-    lowMemEnd = zones[0].base + zones[0].length;
-    highMemStart = zones[1].base + kMaxAddress;
-    highMemEnd = zones[1].base + zones[1].length;
+    *lowMemStartPtr = zones[0].base;
+    *lowMemEndPtr = zones[0].base + zones[0].length;
+    *highMemStartPtr = zones[1].base + kMaxAddress;
+    *highMemEndPtr = zones[1].base + zones[1].length;
 
-    //printk("lowMemStart: %d, lowMemEnd: %d, highMemStart: %d. highMemEnd: %d\n", lowMemStart, lowMemEnd, highMemStart, highMemEnd);
+    //printk("lowMemStart: %x, lowMemEnd: %x, highMemStart: %x. highMemEnd: %x\n", lowMemStart, lowMemEnd, highMemStart, highMemEnd);
    
-    nextFreePage = 0;//alignBy4096(kMaxAddress);
+    *nextFreePagePtr = lowMemStart;//zones[0].base;
     
    // printk("nextFreePage: %d\n", nextFreePage);
     printk("parsing tags finished.\n");
+
+    /*
+    int loop = 1;
+    while (loop) {
+
+    }*/
 
 
 }
@@ -185,7 +197,7 @@ void *MMU_pf_alloc(void) {
 
             temp = head;
             head = *(uint64_t *) head;
-            //printk("allocated a page..\n");
+            printk("taking a page off free list..\n");
             return (void *) temp;  
 
         }
