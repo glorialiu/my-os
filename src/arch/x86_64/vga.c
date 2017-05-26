@@ -21,6 +21,26 @@ static int cursor = 0;
 
 static unsigned char COLOR = RED;
 
+
+
+
+
+int VGA_row_count(void) {
+    return height;
+}
+
+int VGA_col_count(void) {
+    return width;
+}
+
+
+void VGA_display_attr_char(int x, int y, char c, int fg, int bg) {
+    vgaBuff[y * width + x] = (fg << 8) | (bg << 12) | c;
+}
+
+
+
+
 void change_text_color(int new) {
     COLOR = new;
 }

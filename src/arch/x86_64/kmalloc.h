@@ -10,7 +10,7 @@
 #include <stdint.h>
 void free(void *ptr);
 void *malloc(uint64_t size);
-void *calloc(uint64_t nmemb, uint64_t size);
-void *realloc(void *ptr, uint64_t size);
+//void *calloc(uint64_t nmemb, uint64_t size);
+//void *realloc(void *ptr, uint64_t size);
 
 

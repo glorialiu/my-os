@@ -94,8 +94,34 @@ int check_page(void *ptr) {
     return TRUE;
 }
 
-void dummy_proc() {
-    printk("dummy proc called\n");
+void dummy_proc1() {
+    printk("dummy proc 1 called\n");
+    yield();
+
+    
+    printk("dummy proc 1 called 2nd time\n");
+    yield();
+    printk("dummy proc 1 trying to exit\n");
+    //kexit();
+}
+
+void dummy_proc2() {
+    printk("dummy proc 2 called\n");
+    yield();
+    printk("dummy proc 2 called 2nd time\n");
+    yield();
+    printk("dummy proc 2 trying to exit\n");
+
+}
+
+void dummy_proc3() {
+    printk("dummy proc 3 called\n");
+    yield();
+    printk("dummy proc 3 called 2nd time\n");
+    yield();
+
+    printk("dummy proc 3 trying to exit\n");
+
 }
 
 //implement a tab as 4 spaces?
@@ -168,7 +194,7 @@ void kmain(int tagPtr) {
     }
     */
 
-    int * testv = (int *) alloc_heap_vpage(pt_ptr);
+   // int * testv = (int *) alloc_heap_vpage(pt_ptr);
     /*
     int loop = 1;
     while(loop) {
@@ -176,10 +202,10 @@ void kmain(int tagPtr) {
     */
 
 
-    printk("pointer is %x\n", testv);
-    *testv = 1;
+    //printk("pointer is %x\n", testv);
+   // *testv = 1;
 
-    printk("value is %d\n", *testv);
+   // printk("value is %d\n", *testv);
 
     int*testm = malloc(8);
 
@@ -228,9 +254,18 @@ void kmain(int tagPtr) {
 
     
     
-    yield();
+    //yield();
 
-    PROC_create_kthread(&dummy_proc, NULL);
+    /*
+    PROC_create_kthread(&dummy_proc1, NULL);
+    PROC_create_kthread(&dummy_proc2, NULL);
+    PROC_create_kthread(&dummy_proc3, NULL);
+
+    PROC_run();*/
+
+    setup_snakes(4);
+
+    PROC_run();
     
     printk("about to start polling\n");
     continuous_polling();

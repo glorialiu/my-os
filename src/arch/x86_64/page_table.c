@@ -25,7 +25,8 @@ static void *physicalPFStart = (void *)  0x0;
 
 static void *kStackEnd = (void *) 0x8200000;
 
-static void *kHeapEnd = (void *)  0x400000000;
+static void *kHeapEnd = (void *)  0x8000000;
+//0x400000000;
 
 //0x8000000;
 //0x400000000;
@@ -263,11 +264,7 @@ PT *return_pt_entry(void *addr, page_table *pt) {
 
 void unresolved_pf() {
     uint64_t faultCause = read_cr2();
-    /*
-    int loop = 1;
-    while(loop) {
-    }
-    */
+
     printk("PAGE FAULT (UNRESOLVED): %x\n", faultCause);
     asm volatile("hlt");
 }
@@ -280,12 +277,11 @@ void page_fault_handler(int num, int error, void *arg) {
     while(loop) {
     }
     */
+    //printk("error code %d\n", error);
+    //printk("%x caused page fault\n", addr);
+    ////walk page table to return pt entry
 
 
-
-    printk("error code %d\n", error);
-    printk("%x caused page fault\n", addr);
-    //walk page table to return pt entry
     //return_pt_entry will check the pt entry for errors in page table levels internally
     uint64_t cr3 = read_cr3();
 
@@ -296,12 +292,12 @@ void page_fault_handler(int num, int error, void *arg) {
     }*/
 
     if (entry->demand == 1) {
-        printk("allocating on demand\n");
         entry->demand = 0;
         entry->p = 1;
         entry->base_address = (uint64_t) MMU_pf_alloc() >> 12; 
     }
     else {
+
         unresolved_pf();
     }
 }
@@ -331,7 +327,8 @@ void *alloc_stack_vpage(page_table *pt) {
     kStackEnd += NUM_STACK_PAGES * PAGE_SIZE;
     setup_pages(addr, NUM_STACK_PAGES, pt);
 
-    return addr;
+
+    return kStackEnd;
 }
 
 void *alloc_user_vpage(page_table *pt) {

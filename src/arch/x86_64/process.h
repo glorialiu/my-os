@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 typedef struct Process {
 
@@ -31,16 +32,18 @@ typedef struct Process {
     //uint64_t cr3; //aka page table
     //other control registers?
     
-    uint64_t proc_id;
+    uint64_t pid;
     struct Process *next;
     struct Process *nextSched;
     struct Process *prevSched;
 } Process;
 
 
+extern struct Process *curr_proc; 
+extern struct Process *next_proc;
 
 typedef void (*kproc_t)(void *);
-extern void PROC_create_kthread(kproc_t entry_pt, void *arg);
+extern struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg);
 
 extern void PROC_run(void);
 extern void PROC_reschedule(void);
@@ -57,4 +60,5 @@ void syscall(int unused1, int unused2, int sys_num);
 void remove_proc(Process *cur);
 
 extern void init_syscall_handler_table();
+
 

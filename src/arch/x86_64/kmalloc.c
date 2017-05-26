@@ -28,6 +28,7 @@
 
 #include "kmalloc.h"
 #include "page_table.h"
+#include "vga.h"
 
 
 #define FALSE 0
@@ -58,29 +59,6 @@ uint64_t nextDivBy16(uint64_t num) {
    }
 }
 
-void mergeNodes(header *firstNode, header *secondNode) {
-   firstNode->size = firstNode->size + secondNode->size + HEADER_SIZE;
-   firstNode->next = secondNode->next;
-   
-}
-
-void moveNodeDataFrom(header *sourceNode, header *destNode) {
-   memcpy((void *) destNode + HEADER_SIZE,
-    (void *)sourceNode + HEADER_SIZE, sourceNode->size);
-}
-
-int containsPtr(void *ptr, header *node) {
-   if (ptr == NULL) {
-      return FALSE;
-   }
-   
-   if (ptr >= (void *) node + HEADER_SIZE && ptr < (void *)
-    node + HEADER_SIZE + node->size) {
-      return TRUE;
-   }
-   return FALSE;
-}
-
 /* implemented functions */
 void *calloc(uint64_t nmemb, uint64_t size) {
    void * ptr = malloc(nmemb * size);
@@ -89,6 +67,7 @@ void *calloc(uint64_t nmemb, uint64_t size) {
       uint64_t i = 0;
       
       char *ptr2 = (char *) ptr;
+    //TODO: do a memset here instead
       for (i = (uint64_t) (ptr + HEADER_SIZE); i < nextDivBy16(size); i++) {
          ptr2[i] = '\0';
       }
@@ -105,229 +84,25 @@ void free(void *ptr) {
    header *prevNode = NULL;
    header *nextNode = NULL;
 
+
    if (ptr) {
 
-      
       while (currentNode != NULL) {
          
-         if (containsPtr(ptr, currentNode)) {
-            
+         if (ptr - HEADER_SIZE == currentNode) { 
             currentNode->free = 1;
-            nextNode = currentNode->next;
-            
-            if (prevNode && prevNode->free) {
-               mergeNodes(prevNode, currentNode);
 
-               if (nextNode && nextNode->free) {
-                  mergeNodes(prevNode, nextNode);
-               }
-               
-            }
-            else if (nextNode && nextNode->free) {
-               
-               mergeNodes(nextNode, currentNode);
-               
-            }
-            
+            //printk("something was actually freed\n");
+            currentNode = NULL;           
          }
-         prevNode = currentNode;
-         currentNode = currentNode->next;
-         
+
+        if (currentNode) {
+            prevNode = currentNode;
+            currentNode = currentNode->next;
+        }  
       }
    }
 }
-
-
-void *realloc(void *ptr, uint64_t size) {
-   header *currentNode = NULL;
-   header *swapNode = NULL;
-   header *foundNode = NULL;
-   header *newNode = NULL;
-   header *endNode = NULL;
-   header *prevNode = NULL;
-   
-   void *tempBreak = NULL;
-   
-   
-   int endHeapCase = FALSE;
-   int noMemoryLeft = FALSE;
-   
-   
-   if (!ptr) {
-      return malloc(size);
-   }
-   
-   if (!size) {
-      free(ptr);
-      return NULL;
-   }
-   
-   /* finding last node and setting endNode to it */
-   currentNode = listHead;
-   while (currentNode->next != NULL) {
-      currentNode = currentNode->next;
-   }
-   endNode = currentNode;
-
-   /* finding the node the ptr parameter is referencing */
-   currentNode = listHead;
-   while (currentNode != NULL) {
-      if (containsPtr(ptr, currentNode)) {
-         foundNode = currentNode;
-         break;
-      }
-      prevNode = currentNode;
-      currentNode = currentNode->next;
-   }
-   
-   
-   /* case where the ptr parameter is invalid*/
-   if (foundNode == NULL) {
-
-      return NULL;
-   }
-   
-   
-   /* CASE 1 (BEST): current node is big enough, don't do anything*/
-   if (foundNode->size >= nextDivBy16(size)) {
-
-      return (void *) foundNode + HEADER_SIZE;
-   }
-   
-   /* CASE 2: (2ND BEST) next node is free,
-      and next node's size plus ptr node's size is big enough.
-      Merge them. */
-   if (foundNode->next && foundNode->next->free) {
-      if (foundNode->next->size + foundNode->size >= nextDivBy16(size)) {
-         mergeNodes(foundNode, foundNode->next);
-
-         return (void *) foundNode + HEADER_SIZE;
-      }
-   }
-   
-   
-   /* CASE 3: It's the last node and ksbrk doesn't need to be called
-      Resize node. */
-   if (foundNode->next == NULL) {
-      if ((void *) foundNode + HEADER_SIZE + nextDivBy16(size) < curBreak) {
-         
-         foundNode->size = nextDivBy16(size);
-         
-         return (void *) foundNode + HEADER_SIZE;
-      }
-   }
-
-   /* check for CASE 4: "endHeapCase" (the ptr node is the 2nd to last node,
-    and the last node is free */
-   if (foundNode->next) {
-      if (foundNode->next->next == NULL) {
-         if (foundNode->next->free) {
-            endHeapCase = TRUE;
-         }
-      }
-   }
-   
-   /* CASE4: ("endHeapCase") foundNode is 2nd to last node,
-      the last node is free, but the two combined are not large enough*/
-   
-   if (endHeapCase) {
-      tempBreak = curBreak;
-      
-      /* checking to see if a call of ksbrk is need */
-      if ((void *) foundNode + HEADER_SIZE + nextDivBy16(size) > curBreak) {
-         
-         tempBreak = ksbrk(CHUNK_SIZE + nextDivBy16(size));
-         
-         if (tempBreak != ksbrk_FAILED) {
-            curBreak = tempBreak;
-         }
-         else {
-            noMemoryLeft = TRUE;
-         }
-         
-      }
-      
-      if (!noMemoryLeft) {
-         
-         /* ksbrk didn't fail, or ksbrk didn't need to be called because
-            there is still space in the allocated memory.
-            Node is just resized */
-         
-         foundNode->size = nextDivBy16(size);
-         foundNode->next = NULL;
-         
-         return (void *) foundNode + HEADER_SIZE;
-      }
-   }
-   
-   
-   /* Reaches here if endHeapCase doesn't work out
-      or if it's not the endHeapCase */
-
-   
-   /* find a free node to swap data to*/
-   int swapFound = FALSE;
-   currentNode = listHead;
-   while (currentNode != NULL) {
-      
-      if (currentNode->free && currentNode->size >= nextDivBy16(size)) {
-         swapNode = currentNode;
-         swapFound = TRUE;
-         break;
-      }
-      currentNode = currentNode->next;
-   }
-   
-   
-   if (!swapFound) {
-      /* no free nodes big enough,
-         new node needs to be made at the end.
-         ksbrk might need to be called */
-      
-      if (noMemoryLeft) {
-         return NULL;
-      }
-      
-      tempBreak = NULL;
-      
-      if ((void *) endNode + HEADER_SIZE + endNode->size + HEADER_SIZE +
-       nextDivBy16(size) > curBreak) {
-
-         tempBreak = ksbrk(CHUNK_SIZE + nextDivBy16(size));
-         if (tempBreak != ksbrk_FAILED) {
-            curBreak = tempBreak;
-         }
-         else {
-            return NULL;
-         }
-      }
-      
-      /* create a new node and copy data over */
-      newNode = (header *) ((void *) endNode +
-       HEADER_SIZE + endNode->size);
-      
-      endNode->next = newNode;
-      
-      newNode->free = 0;
-      newNode->size = nextDivBy16(size);
-      newNode->next = NULL;
-      
-      moveNodeDataFrom(foundNode, newNode);
-      free(foundNode);
-
-      return (void *) newNode + HEADER_SIZE;
-   }
-   else {
-      /* suitable free node found, move data over*/
-      moveNodeDataFrom(foundNode, swapNode);
-      free(foundNode);
-      
-      return (void *) swapNode + HEADER_SIZE;
-      
-   }
-   
-}
-
 
 void *malloc(uint64_t size) {
    uint64_t sizeForAddress = nextDivBy16(size);
@@ -349,17 +124,9 @@ void *malloc(uint64_t size) {
          initialChunk = sizeForAddress + CHUNK_SIZE;
       }
       
-      tempBreak2 = ksbrk(initialChunk);
-      
-      if (tempBreak2 != ksbrk_FAILED) {
-         curBreak = tempBreak2;
-      }
-      else {
-         return NULL;
-      }
+      curBreak = ksbrk(initialChunk);
       
       newNode = (header *) tempBreak;
-      
       newNode->free = 0;
       newNode->size = sizeForAddress;
       newNode->next = NULL;
@@ -395,14 +162,7 @@ void *malloc(uint64_t size) {
       
       if (((void *) lastNode + HEADER_SIZE + lastNode->size + HEADER_SIZE +
        sizeForAddress) > curBreak) {
-         tempBreak = ksbrk(CHUNK_SIZE + sizeForAddress);
-         
-         if (tempBreak != ksbrk_FAILED) {
-            curBreak = tempBreak;
-         }
-         else {
-            return NULL;
-         }
+         curBreak = ksbrk(CHUNK_SIZE + sizeForAddress);
 
       }
       

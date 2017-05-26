@@ -181,7 +181,7 @@ void *MMU_pf_alloc(void) {
 
     if (allocatedPage < highMemEnd) {
         //printk("high mem end: %d\n", highMemEnd);
-        printk("allocated page is %d\n", allocatedPage);
+        //printk("allocated page is %d\n", allocatedPage);
         //printk("allocated page is %p\n", allocatedPage);
         return (void *) allocatedPage;
     }    

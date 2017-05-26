@@ -395,9 +395,13 @@ common_irq_handler_2:
     mov rcx, [next_proc]
     mov rbx, [curr_proc]
 
+
     cmp rcx, rbx
     
     je no_swap_needed
+
+    cmp rbx, $0
+    je no_save_needed
     ; else, do context swap
 
     ; stack related stuff
@@ -433,29 +437,33 @@ common_irq_handler_2:
     mov [rbx + 0x70], rax
 
     ; others
-    mov [rbx + 0x88], ds
-    mov [rbx + 0x90], es
-    mov [rbx + 0x98], fs
-    mov [rbx + 0x100], gs
+    mov rax, ds
+    mov [rbx + 0x88], rax
+    mov rax, es
+    mov [rbx + 0x90], rax
+    mov rax, fs
+    mov [rbx + 0x98], rax
+    mov rax, gs
+    mov [rbx + 0xA0], rax
 
     ;whats left, rsp, rip, flags to save. how? does it matter how i do this?
     ; do this by going back to the stack
     mov rax, [rsp + 0x78] ;save rip
-    mov [rbx + 0x110], rax
+    mov [rbx + 0xB0], rax
 
     mov rax, [rsp + 0x80] ;save cs
     mov [rbx + 0x78], rax
 
     mov rax, [rsp + 0x88] ;save flags
-    mov [rbx + 0x118], rax
+    mov [rbx + 0xB8], rax
 
     mov rax, [rsp + 0x90] ;save rsp
-    mov [rbx + 0x108], rax
+    mov [rbx + 0xA8], rax
 
     mov rax, [rsp + 0x98] ;save ss
     mov [rbx + 0x80], rax
 
-    
+no_save_needed:    
     ; restore hw context
     ; rcx is next_proc, rbx is curr_proc
     ; stack related stuff
@@ -494,19 +502,19 @@ common_irq_handler_2:
     mov ds, [rcx + 0x88]
     mov es, [rcx + 0x90]
     mov fs, [rcx + 0x98]
-    mov gs, [rcx + 0x100]
+    mov gs, [rcx + 0xA0]
 
 
-    mov rax, [rcx + 0x110]; load rip
+    mov rax, [rcx + 0xB0]; load rip
     mov [rsp + 0x78], rax
 
     mov rax, [rcx + 0x78] ;load cs
     mov [rsp + 0x80], rax
 
-    mov rax, [rcx + 0x118];load flags
+    mov rax, [rcx + 0xB8];load flags
     mov [rsp + 0x88], rax
 
-    mov rax, [rcx + 0x108] ;load rsp
+    mov rax, [rcx + 0xA8] ;load rsp
     mov [rsp + 0x90], rax
 
     mov rax, [rcx + 0x80] ;load ss
@@ -514,7 +522,7 @@ common_irq_handler_2:
     
     ; set curr proc to next proc
     mov [curr_proc], rcx
-    hlt
+    ;hlt
 
 no_swap_needed:    
 
