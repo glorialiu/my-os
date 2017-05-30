@@ -7,6 +7,7 @@
 #include "page_table.h"
 #include "process.h"
 #include "kmalloc.h"
+#include "block.h"
 /*
 void printk_tests() {
     printk("******TEST SCRIPT FOR PRINTK******\n");
@@ -124,27 +125,7 @@ void dummy_proc3() {
 
 }
 
-//implement a tab as 4 spaces?
-void kmain(int tagPtr) {
-
-    VGA_clear();
-
-
-    change_text_color(OCEAN_BLUE);
-
-    ps2_initialize();
-    SER_init();
-
-
-    //printk("tag ptr: %x\n", tagPtr);
-
-    uint64_t tags = tagPtr & 0xFFFFFFFF;
-
-    idt_init();
-    sti();
-
-    parse_tags(tags);
-   
+void phys_page_alloc_tests() {
   /*
     void *temp = MMU_pf_alloc();
     void *temp2 = MMU_pf_alloc();
@@ -182,94 +163,85 @@ void kmain(int tagPtr) {
 
 */
 
-    printk("about to init page table\n");
-    
-    page_table pt;
+}
 
-    page_table *pt_ptr;
-    pt_ptr = (page_table *) ptable_init(&pt);
-    /*
-    int loop = 1;
-    while(loop) {
-    }
-    */
-
-   // int * testv = (int *) alloc_heap_vpage(pt_ptr);
-    /*
-    int loop = 1;
-    while(loop) {
-    }
-    */
-
-
-    //printk("pointer is %x\n", testv);
-   // *testv = 1;
-
-   // printk("value is %d\n", *testv);
-
-    int*testm = malloc(8);
-
-    int*testm1 = malloc(8);
-
-    *testm1 = 5;
-
-    printk("value should be 5: %d\n", *testm1);
-
-    /*
-    int loop = 1;
-    while(loop) {
-    }*/
-   
-    // printk_tests();
-    //SER_write("hi", 3);
-
-   // char *test = "wow this is a long output string woohoooooo !!!!!\n\n testing new lines yeah\n\nwefjeiaow;ejfwefwf ksdjflasjdf;asBoth have the same basic types of pins. A DB-25 has most of the pins as ground pins, whereas a DE-9 has only a few ground pins. There is a transmitting pin (for sending information away) and a receiving pin (for getting information). Some serial ports can have a duplex mode--that is, they can send and receive simultaneously. There are a few other pins, used for hardware handshaking. In the past, there was no duplex mode, so if a computer wanted to send something it had to tell the other device or computer that it was about to transmit, using one of the hardware handshaking pins. The other thing would then use another handshaking pin to tell it to send whatever it wanted to send. Today there is duplex mode, but the handshaking pins are still used.";
-   // SER_write(test, strlen(test));
-
-   
-/*
-
-    int loop = 1;
-    while(loop) {
-    }
-
-    uint64_t fault = 0xFFFFFFFFFFFF;
-
-    int test = * ((int *) fault);
-    
-    printk("test is %d\n", test);
-
-    */
-
-
-    //asm volatile("int $8"); //double fault
-    //asm volatile("int $14"); //page fault
-    //asm volatile("int $13");
-
-  //  asm volatile("int $8"); //double fault
-  //  asm volatile("int $14"); //page fault
-
-    
-//    kexit();
-
-    
-    
-    //yield();
-
+void coop_multitasking_tests() {
     /*
     PROC_create_kthread(&dummy_proc1, NULL);
     PROC_create_kthread(&dummy_proc2, NULL);
     PROC_create_kthread(&dummy_proc3, NULL);
 
     PROC_run();*/
+}
 
-    setup_snakes(4);
+void keyboard_io(void *ptr)
+{
 
-    PROC_run();
+/*
+    while (1) { 
+        printk("%c", getc());
+    }*/
+
+    char c;
+    while (1) { 
+        c = getc();
+
+        if (c) {
+            printk("%c", c);
+        }
+    }   
+}
+
+void kBreak() {
+    int loop = 1;   
+    while (loop) {
+
+    }
+}
+
+//implement a tab as 4 spaces?
+void kmain(int tagPtr) {
+
+    VGA_clear();
+    change_text_color(OCEAN_BLUE);
+    ps2_initialize();
+    SER_init();
+    uint64_t tags = tagPtr & 0xFFFFFFFF;
+    idt_init();
+    sti();
+    parse_tags(tags);
+
+    printk("about to init page table\n");
+    page_table pt;
+    page_table *pt_ptr;
+    pt_ptr = (page_table *) ptable_init(&pt);
+
+    int*testm = malloc(8);
+    int*testm1 = malloc(8);
+    *testm1 = 5;
+    printk("TESTING MALLOC: value should be 5: %d\n", *testm1);
+   
+
+    //setup_snakes(4);
+    //PROC_run();
     
-    printk("about to start polling\n");
-    continuous_polling();
+    //printk("about to start polling\n");
+    //continuous_polling();
 
+    cmd_queue_init();
+
+    //PROC_create_kthread(&cmd_queue_init, NULL);
+    
+    PROC_create_kthread(&keyboard_io, NULL);
+    //kBreak();
+
+    //init_block_devices();
+    
+    while(1) {
+        //printk("PROC_run()\n");
+        PROC_run();
+        asm("hlt");
+    }
 }
 
 

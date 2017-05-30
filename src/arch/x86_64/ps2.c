@@ -1,6 +1,8 @@
 #include "ps2.h"
 #include "vga.h"
-
+#include "kmalloc.h"
+#include "process.h"
+#include "types.h"
 
 #define PS2_DATA 0x60
 #define PS2_CMD 0x64
@@ -31,8 +33,240 @@
 
 #define INVALID -1
 
+#define DEFAULT 10
+#define WAITING_FOR_ACK 11
+#define SCANNING_ENABLING_REQUEST_SENT 12
+#define WAITING_FOR_SCAN_CODE 13
+#define SCANNING_ENABLED 14
+
+#define KBD_BUFFER_LEN 4096
+
 int SHIFT_ON = FALSE;
 int CNTRL_ON = FALSE;
+
+typedef struct kbdCommand {
+    uint8_t command;
+    struct kbdCommand *next;
+} kbdCommand;
+
+typedef struct CommandQueue {
+    kbdCommand *head;
+    int state;
+} CommandQueue;
+
+struct CommandQueue *cmdQ;
+
+struct ProcessQueue *kbdPQ;
+
+char PCBuffer[KBD_BUFFER_LEN];
+
+//initialization
+
+void cmd_queue_init() {
+
+    kbdPQ = malloc(sizeof(ProcessQueue));
+    PROC_init_queue(kbdPQ);
+
+    cmdQ= malloc(sizeof(CommandQueue));
+    cmdQ->head = NULL;
+    
+
+
+
+    //temporarily setting this for debugging
+    //cmdQ->state = WAITING_FOR_SCAN_CODE;
+
+
+    
+
+    //initialize state machine state
+    cmdQ->state = DEFAULT;
+
+    //add all init commands to queue
+    add_to_queue(KEYBOARD_RESET);
+    //KEYBOARD_RESET
+        //- need to get "self test passed"
+
+    add_to_queue(SET_SCAN_1);
+    add_to_queue(ENABLE_SCANNING);
+
+    
+}
+
+//call this in kbd_isr
+void kbd_isr() {
+
+    uint8_t data = inb(PS2_DATA);
+
+    /*
+    int loop = 1;
+    while (loop) {
+
+    }*/
+
+    if (cmdQ->state != WAITING_FOR_SCAN_CODE) {
+        //what if we get an ACK when we aren't waiting for one? what does that mean
+        if (data == ACK || data == SELFTEST_PASSED) {
+
+            if (cmdQ->state == WAITING_FOR_ACK) {
+                cmdQ->state = DEFAULT;
+                remove_queue_head();
+            }
+            
+            else if (cmdQ->state == SCANNING_ENABLING_REQUEST_SENT) {
+                cmdQ->state = WAITING_FOR_SCAN_CODE;
+                remove_queue_head();
+                }
+        }
+
+        //if queue is not empty, send the command
+        if (cmdQ->head) {
+            send_queue_head();
+        }           
+    }
+    else {
+        //data is the scan code
+
+     /*   
+    int loop =  1;
+    while(loop ) {
+
+    }*/
+        char key = get_scancode(data); // stuff with this needs to be fixed.. like shift and tab etc
+        write_kbd_buffer(key);
+        PROC_unblock_head(kbdPQ);      
+    }
+}
+
+void remove_queue_head() {
+
+    kbdCommand *head = cmdQ->head;
+
+    if (cmdQ->head) {
+
+        cmdQ->head = cmdQ->head->next;
+
+        free(head);
+    }
+    else {
+        printk("well this is bad. trying to remove a null head.\n");
+    }
+
+}
+
+//dont remove the head here!
+void send_queue_head() {
+
+    outb(PS2_CMD, cmdQ->head->command);
+    
+    if (cmdQ->head == SCANNING_ENABLED) {
+        cmdQ->state = SCANNING_ENABLING_REQUEST_SENT;
+    }
+    else {
+        cmdQ->state = WAITING_FOR_ACK;
+    }
+
+}
+
+
+char read_kbd_buffer() {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
+    
+    if (kbdPQ->read == kbdPQ->write) {
+
+        if (interrupts) {
+            sti();
+        } 
+        return;
+    }
+
+    char newChar = *kbdPQ->read++;
+
+    // if head is past end, loop around
+    if (kbdPQ->read >= &kbdPQ->buffer[KBD_BUFFER_LEN]) {
+        kbdPQ->read = &kbdPQ->buffer[0];
+    }   
+
+    if (interrupts) {
+        sti();
+    }
+
+    return newChar;
+}
+
+char getc() {
+    int interrupts = FALSE;
+    
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
+    while(kbdPQ->read == kbdPQ->write) {
+        PROC_block_on(kbdPQ, TRUE);
+        cli();
+    }
+
+    char newChar = read_kbd_buffer(&newChar);
+
+    if ((newChar != 0xA) && (newChar < 32 || newChar > 127)) {
+        newChar = NULL;
+    }
+
+
+    if (interrupts) {
+        sti();
+    }
+
+    return newChar;
+}
+
+void write_kbd_buffer(char toAdd) {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
+    //head is what we read from (consumer)
+    //tail is what we write to (producer)
+
+    if (kbdPQ->read - 1 == kbdPQ->write || (kbdPQ->read == kbdPQ->buffer && kbdPQ->write == kbdPQ->buffer + KBD_BUFFER_LEN - 1)) {
+        //its full
+
+        if (interrupts) {
+            sti();
+        } 
+        return; //??
+    }
+
+    *kbdPQ->write++ = toAdd;
+
+    if (kbdPQ->write >= kbdPQ->buffer + KBD_BUFFER_LEN) {
+        kbdPQ->write = &kbdPQ->buffer[0];
+    }      
+
+    if (interrupts) {
+        sti();
+    } 
+}
+
+
+void add_to_queue(int cmd) {
+    
+    kbdCommand *new = malloc(sizeof(kbdCommand));
+
+    new->command = cmd;
+    new->next = NULL;
+}
+
 
 void poll_and_write(int port, int data) {
 

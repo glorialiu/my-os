@@ -36,6 +36,7 @@ typedef struct Process {
     struct Process *next;
     struct Process *nextSched;
     struct Process *prevSched;
+    struct Process *nextBlock;
 } Process;
 
 
@@ -60,5 +61,20 @@ void syscall(int unused1, int unused2, int sys_num);
 void remove_proc(Process *cur);
 
 extern void init_syscall_handler_table();
+
+
+typedef struct ProcessQueue {
+    struct Process *head;
+    char *read; //read
+    char *write; //write
+    char buffer[4096];
+} ProcessQueue;
+
+void PROC_block_on(ProcessQueue *pq, int enable_ints);
+void PROC_unblock_all(ProcessQueue *pq);
+void PROC_unblock_head(ProcessQueue *pq);
+void PROC_init_queue(ProcessQueue *pq);
+
+
 
 

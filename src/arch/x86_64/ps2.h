@@ -41,3 +41,19 @@ typedef struct ps2_config {
     uint8_t zero1:1;
 
 } __attribute__((packed)) ps2_config;
+
+
+extern void cmd_queue_init();
+extern void kbd_isr();
+
+void remove_queue_head();
+void send_queue_head();
+void add_to_queue(int cmd);
+
+char read_kbd_buffer();
+void write_kbd_buffer(char toAdd);
+
+void consume_byte(char c);
+extern char getc();
+
+

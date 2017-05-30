@@ -78,6 +78,18 @@ inline uint64_t read_cr3(void) {
     return val;
 }
 
+
+inline uint16_t inw(uint16_t port) {
+	uint16_t val;
+	__asm__ volatile ("inw %1, %0" : "=a" (val) : "dN" (port));
+	return val;
+}
+
+inline void insw (uint16_t port, void *addr, int cnt)
+{
+  /* See [IA32-v2a] "INS". */
+  asm volatile ("rep insw" : "+D" (addr), "+c" (cnt) : "d" (port) : "memory");
+}
 /*
 inline void set_kcs(int CS_start) {
     asm volatile (

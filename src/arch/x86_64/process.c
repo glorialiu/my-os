@@ -16,11 +16,6 @@ struct Process *tailProcPtr = NULL;
 struct Process *scheduleHeadPtr = NULL;
 struct Process *scheduleTailPtr = NULL;
 
-struct Process testProc1;
-struct Process testProc2;
-
-
-
 struct Process *curr_proc; 
 struct Process *next_proc;
 
@@ -39,14 +34,6 @@ void init_syscall_handler_table() {
     curr_proc = NULL;
     next_proc = NULL;
 
-    //test for debugging
-
-    //testProc1.r15 = 7;
-    //testProc2.r15 = 12;
-
-    //curr_proc = &testProc1;
-    //next_proc = &testProc2;
-    
 }
 
 //add process to the main process linked list
@@ -64,6 +51,10 @@ void add_proc(Process *new) {
 
 //add process to scheduler linked list
 void add_proc_to_scheduler(Process *new) {
+
+    //if its being added to the scheduler, it can't be on a block list
+    new->nextBlock = NULL;
+
     if (scheduleHeadPtr == NULL) {
         scheduleHeadPtr = new;
         scheduleTailPtr = new;
@@ -83,8 +74,6 @@ struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg) {
 
     //malloc a new process "new"
     
-
-    
     Process *new = malloc(sizeof(struct Process));
 
     memset(new, 0, sizeof(struct Process));
@@ -93,17 +82,11 @@ struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg) {
     new->cs = 0x08;
     new->rsp = alloc_stack_vpage(0); //rename alloc_new_stack() to make more sense?
     new->ss = 0;
-    new->flags = 0;//get flags somehow with interrupts enabled;
+    new->flags = 512;//flag with interrupts enabled;
     new->rdi = arg;
     new->rsp = new->rsp - 8;
     *((uint64_t *) new->rsp) = kexit;
-    //
 
-    /*
-    int loop = 1;
-    while(loop) {
-
-    }*/
     new->next = NULL;
 
     new->pid = id++;
@@ -116,18 +99,8 @@ struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg) {
     // add to main proc linked list
     add_proc(new);
 
-    /*
-    int loop = 1;
-    while (loop) {
-
-    }*/
     // add to scheduler linked list
     add_proc_to_scheduler(new);
-
-    /*
-    int loop = 1;
-    while (loop) {  
-    }*/
 
     return new;
 }
@@ -147,7 +120,6 @@ void PROC_run(void) {
 
     yield();
 
-    printk("back to main\n");
 }
 
 
@@ -158,53 +130,47 @@ void PROC_run(void) {
 //adds curr_proc to the scheduler
 void PROC_reschedule(void) {
 
-    //TODO: dont forget about edge cases of just 1 or 2 procs (??)
+    //TODO: edge cases of just 1 or 2 procs (??)
     
 
-    //if no more threads to run
+    // If there are no more threads to run, set to main process pointer to "return"
     if (!scheduleHeadPtr) {
-
         next_proc = mainProcPtr;
     }
     else {
-        
-        
+        //else, set next_proc to the next process in the scheduler
         next_proc = scheduleHeadPtr;
+    
+        //set scheduler pointers accordingly
         scheduleHeadPtr = scheduleHeadPtr->next;
         scheduleHeadPtr->prevSched = NULL;
-
-        //this probs isn't necessary
-        next_proc->prevSched = NULL;
-        next_proc->nextSched = NULL;
+        next_proc->prevSched = NULL; // just for clarity, not necessary
+        next_proc->nextSched = NULL; // clarity
 
         if (!scheduleHeadPtr) {
-            //if that was the last process in the scheduler, set both schedule ptrs to the curr_proc, which will now be the only proc in the list
+            //if that was the last process in the scheduler
+            //set both schedule ptrs to the curr_proc, which will now be the only process in the scheduler
+            //EDGE CASE: curr_proc is still in the scheduler if and only if it is the last process that can run
 
-            // if curr_proc is null that means it just exited
+            // if curr_proc is null, it just exited
             if (curr_proc) {
 
+                //if it is not null, add it back into the scheduler
                 scheduleHeadPtr = curr_proc;
                 scheduleTailPtr = curr_proc;
 
                 curr_proc->prevSched = NULL;
                 curr_proc->nextSched = NULL;
             }
-        
-
         }
         else {
-
-
+            //if there are still processes to run other than the current process (curr_proc),
+            //and if the process that called yield (curr_proc) isn't the main initializing process:
+            //add the current process to the scheduler
             if (curr_proc && curr_proc != mainProcPtr) {
 
-                /*
-                int loop = 1;
-                while (loop) {  
-                }*/
-        
                 curr_proc->prevSched = scheduleTailPtr;
                 curr_proc->nextSched = NULL;//just doing this in case
-
                 scheduleTailPtr->next = curr_proc;
                 scheduleTailPtr = curr_proc;
 
@@ -219,7 +185,6 @@ void yield(void) {
 }
 
 void yield_isr() {
-   // printk("yield isr called\n");
     PROC_reschedule();
 }
 
@@ -229,25 +194,23 @@ void kexit(void) {
 }
 
 void exit_isr() {
-    //TODO: set this up on TSS
-    //printk("exit isr called\n");
-
-    /*
-    int loop = 1;
-    while(loop) {
-    }*/
 
     remove_proc(curr_proc); //removes proc from linked list
     
+    // EDGE CASE: if the next scheduled process IS the current process,
+    // set schedule ptrs to NULL
+    // This is the special case where the current process is kept in the scheduler if its the last one that can run
     if (scheduleHeadPtr == curr_proc) {
         scheduleHeadPtr = NULL;
         scheduleTailPtr = NULL;
     }
-    free(curr_proc);
-    //free it and everything in it
-    curr_proc = NULL;
-
     
+    //free it and everything in it
+    //should probably free stack at some point (the physical pages)
+    free(curr_proc);
+
+    //set curr_proc to NULL
+    curr_proc = NULL;
 
     // reschedule
     PROC_reschedule();
@@ -262,9 +225,6 @@ void exit_isr() {
 //should only be called on a proc in the linked list, error check for this?
 void remove_proc(Process *cur) {
 
-    /*int loop = 1;
-    while (loop) {  
-    }*/
     Process *procIter = headProcPtr;
     Process *prevProc = headProcPtr;
 
@@ -289,21 +249,83 @@ void syscall(int unused1, int unused2, int sys_num) {
 
 
 void syscall_handler(int irq_num, int err, void *sys_num) {
-
     int num = *((int *) sys_num);
-    //printk("system call %d\n", num);
-
- 
 
     //actually calls the system call
     sys_impl[num]();
-
-    /*
-    int loop = 1;
-    while (loop) {
-
-    }*/
-
 }   
+
+
+/* PROC MANAGEMENT CODE */
+
+void PROC_block_on(ProcessQueue *pq, int enable_ints) {
+    //remove curr_proc from the scheduler (it already isn't in the scheduler)
+    
+    //add it to the PQ of blocked processes
+
+    if (!pq->head) {
+        pq->head = curr_proc;
+        
+    }
+    else {
+        Process *iter = pq->head;
+    
+        while (iter->nextBlock) {
+            iter = iter->nextBlock;
+        }
+        
+        iter->nextBlock = curr_proc;
+        curr_proc->nextBlock = NULL;
+    }
+    
+    if (curr_proc == scheduleHeadPtr && curr_proc == scheduleTailPtr) {
+        //EDGE CASE: this condition is true when the current process is the last one to run
+        //(??) what are we supposed to do when the last process to run blocks? return to the main intialization thread or block on it?
+        
+        //option 1: this would cause it to return to the main context
+        scheduleHeadPtr = NULL;    
+    }
+
+    curr_proc = NULL;
+
+    if (enable_ints) {
+        sti();
+    }
+
+    yield();
+    
+}
+
+void PROC_unblock_all(ProcessQueue *pq) {
+    Process *iter = pq->head;
+    Process *nextBlocked;
+
+    while(iter) {
+        nextBlocked = iter->next; //save the next blocked because iter->nextBlock is set to null in add_proc_to_scheduler()
+        add_proc_to_scheduler(iter);
+        iter = nextBlocked;
+    }
+
+    pq->head = NULL;
+}
+
+void PROC_unblock_head(ProcessQueue *pq) {
+
+    if (pq->head) {
+        Process *unblocked = pq->head;
+        pq->head = pq->head->next;
+        
+        add_proc_to_scheduler(unblocked);
+    }
+
+} 
+
+void PROC_init_queue(ProcessQueue *pq) {
+    pq->head = NULL;
+    pq->read = &pq->buffer[0];
+    pq->write = &pq->buffer[0];
+}
+
+
 
 

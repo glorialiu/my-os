@@ -25,3 +25,7 @@ extern uint64_t read_cr2(void);
 extern void load_cr3(uint64_t newReg);
 
 extern uint64_t read_cr3(void);
+
+extern void insw (uint16_t port, void *addr, int cnt);
+
+extern uint16_t inw(uint16_t port);

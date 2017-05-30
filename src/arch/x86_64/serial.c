@@ -37,6 +37,10 @@ void consumer_next(struct State *state) {
 
     
     if (state->head == state->tail) {
+
+        if (interrupts) {
+            sti();
+        }
         return;
     }
 
@@ -64,6 +68,9 @@ void producer_add_char(char toAdd, struct State *state) {
     if (state->head - 1 == state->tail || (state->head == state->buffer && state->tail == state->buffer + BUFFER_LEN - 1)) {
         //its full
         //printk("BUFFER FULL\n");
+        if (interrupts) {
+            sti();
+        }
         return; //??
     }
 
