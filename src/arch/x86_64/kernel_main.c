@@ -174,24 +174,59 @@ void coop_multitasking_tests() {
     PROC_run();*/
 }
 
-void keyboard_io(void *ptr)
+void keyboard_io1_demo(void *ptr)
 {
 
-/*
-    while (1) { 
-        printk("%c", getc());
-    }*/
-
+    printk("entered 1\n");
     char c;
     while (1) { 
+        printk("1 looping\n\n");
         c = getc();
-
         if (c) {
             printk("%c", c);
         }
     }   
 }
 
+void keyboard_io2_demo(void *ptr)
+{
+
+    printk("entered 2\n");
+    char c;
+    while (1) { 
+        printk("2 looping\n\n");
+        c = getc();
+        if (c) {
+            printk("%c", c);
+        }
+    }   
+}
+
+void keyboard_io3_demo(void *ptr)
+{
+
+    printk("entered 3\n");
+    char c;
+    while (1) { 
+        printk("3 looping\n\n");
+        c = getc();
+        if (c) {
+            printk("%c", c);
+        }
+    }   
+}
+
+void keyboard_io(void *ptr)
+{
+
+    char c;
+    while (1) { 
+        c = getc();
+        if (c) {
+            printk("%c", c);
+        }
+    }   
+}
 void kBreak() {
     int loop = 1;   
     while (loop) {
@@ -211,33 +246,49 @@ void kmain(int tagPtr) {
     sti();
     parse_tags(tags);
 
-    printk("about to init page table\n");
+    
     page_table pt;
     page_table *pt_ptr;
     pt_ptr = (page_table *) ptable_init(&pt);
+    printk("*****PAGE TABLE INITIALIZED*****\n");
 
     int*testm = malloc(8);
     int*testm1 = malloc(8);
     *testm1 = 5;
     printk("TESTING MALLOC: value should be 5: %d\n", *testm1);
    
+    /* SNAKES STUFF */
+    /*
+    setup_snakes(4);
+    PROC_run();
+    */
 
-    //setup_snakes(4);
-    //PROC_run();
-    
-    //printk("about to start polling\n");
-    //continuous_polling();
 
+    /* KEYBOARD STUFF */
     cmd_queue_init();
-
-    //PROC_create_kthread(&cmd_queue_init, NULL);
-    
     PROC_create_kthread(&keyboard_io, NULL);
-    //kBreak();
+    /*
+    PROC_create_kthread(&keyboard_io1_demo, NULL);
+    PROC_create_kthread(&keyboard_io2_demo, NULL);
+    PROC_create_kthread(&keyboard_io3_demo, NULL);
+    */
+    /*printk("about to start polling\n");
+    continuous_polling();
+    */
 
-    //init_block_devices();
+    /* BLOCK DEVICE STUFF */
+    init_ata_read_queue();
+    init_block_devices();
+
+    uint16_t buffer[256];
+
+    //ata_read_block(0, buffer, 256);
+
+    //PROC_create_kthread(&block_test_thread, NULL);
     
+
     while(1) {
+        //testing
         //printk("PROC_run()\n");
         PROC_run();
         asm("hlt");

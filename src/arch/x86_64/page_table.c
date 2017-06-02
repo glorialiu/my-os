@@ -112,9 +112,9 @@ void *ptable_init(page_table *pt_start) {
 
     uint64_t ptr = (uint64_t) pt_start;
 
-    printk("about to load cr3\n");
+    //printk("about to load cr3\n");
     load_cr3(ptr);
-    printk("loaded cr3 successfully\n");
+    //printk("loaded cr3 successfully\n");
     return pt_start;
 }
 

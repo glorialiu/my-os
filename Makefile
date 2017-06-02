@@ -24,7 +24,7 @@ h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h $(src_dir)/inline_asm.h $(src_
 
 .PHONY: all clean run iso
 
-all: $(kernel)
+all: img
 
 clean:
 	@rm -r build
@@ -40,6 +40,31 @@ $(iso): $(kernel) $(grub_cfg)
 	@cp $(grub_cfg) build/isofiles/boot/grub
 	@grub-mkrescue -o $(iso) build/isofiles 2> /dev/null
 	@rm -r build/isofiles
+
+img: $(kernel)
+	rm -r .img
+	mkdir .img
+	mkdir .img/boot
+	mkdir .img/boot/grub
+	cp src/arch/$(arch)/grub.cfg .img/boot/grub
+	cp build/kernel-$(arch).bin .img/boot/kernel.bin
+
+	dd if=/dev/zero of=fat.img bs=512 count=32768
+	parted fat.img mklabel msdos
+	parted fat.img mkpart primary fat32 2048s 30720s
+	parted fat.img set 1 boot on
+
+	sudo losetup /dev/loop0 fat.img
+	sudo losetup /dev/loop2 fat.img -o 1048576
+	sudo mkdosfs -F32 -f 2 /dev/loop2
+	sudo mkdir -p /mnt/fatgrub
+	sudo mount /dev/loop2 /mnt/fatgrub
+	sudo grub-install --root-directory=/mnt/fatgrub --no-floppy --modules="normal part_msdos ext2 multiboot" /dev/loop0
+	sudo cp -r .img/* /mnt/fatgrub
+	sudo umount /mnt/fatgrub
+	sudo losetup -d /dev/loop0
+	sudo losetup -d /dev/loop2
+	qemu-system-x86_64 -s -drive format=raw,file=fat.img -serial stdio
 
 $(kernel): $(assembly_object_files) $(linker_script) $(o_files) $(h_files)
 	ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(o_files) 

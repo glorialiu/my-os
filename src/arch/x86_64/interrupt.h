@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include "memfuncs.h"
 #include "inline_asm.h"
-
 #define NUM_IRQS 10
 #define NUM_INTERRUPTS 256
 
@@ -52,6 +51,7 @@ void keyboard_handler(int num, int error, void *arg);
 void invalid_tss_handler(int num, int error, void *arg);
 void gpf_handler(int num, int error, void *arg);
 void segment_np_handler(int num, int error, void *arg);
+void ata_handler(int num, int error, void *arg);
 
 void set_handler_gpf(IDT_entry *entry, uint64_t address);
 

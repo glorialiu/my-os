@@ -4,6 +4,7 @@
 #include "page_table.h"
 #include "process.h"
 #include "ps2.h"
+#include "block.h"
 
 #define PIC1 0x20
 #define PIC2 0xA0
@@ -121,14 +122,19 @@ void idt_init() {
     IRQ_set_handler(123, syscall_handler, NULL);
     init_syscall_handler_table();
 
+    // set handler for ATA
+    set_handler_in_IDT(&IDT_table[0x2E], (uint64_t) &irq_handler46, KERNEL_SEGMENT, 0);
+    IRQ_set_handler(0x2E, ata_handler, NULL);
+
     TSS_init();
     ltr(TSS_SEGMENT);
 
     IRQ_clear_mask(4);
     IRQ_clear_mask(1);
 
+    
 
-    printk("EVERYTHING INITIALIZED\n");
+    printk("*****INTERRUPTS INITIALIZED*****\n");
 }
 
 void segment_np_handler(int num, int error, void *arg) {
@@ -169,6 +175,12 @@ void gpf_handler(int num, int error, void *arg) {
     error_code_print(error);
 
     asm volatile("hlt");
+}
+
+void ata_handler(int num, int error, void *arg) {
+    //printk("ata handler\n");
+    ata_isr();
+    //asm volatile("hlt");
 }
 
 //address: address of asm interrupt handler

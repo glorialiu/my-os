@@ -1,6 +1,20 @@
 #include "types.h"
 #include <stdint.h>
 
+typedef struct HDProcessQueue {
+    struct Process *head;
+    struct DriveCmd *commandHead;
+} HDProcessQueue;
+
+typedef struct ATACmd {
+    void *dst;
+    uint64_t lba;
+    uint64_t len;
+    int complete;
+    struct ProcessQueue *queue;
+    struct ATACmd *next;
+} ATACmd;
+
 typedef struct Bus {
     uint16_t base;
     uint16_t control;
@@ -47,6 +61,16 @@ void ata_identify(ATABlockDev *device);
 void ata_soft_reset(Bus *dev);
 void ata_io_wait(uint16_t);
 int detect_devtype (int slavebit, Bus *dev);
+
+extern void ata_isr();
+
+extern void init_ata_read_queue();
+void ata_read_block(uint64_t lba, void *dst, uint64_t len);
+void dequeue_command();
+void enqueue_command(ATACmd *cmd);
+
+
+extern void block_test_thread();
 
 
 void printType(int type);

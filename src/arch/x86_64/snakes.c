@@ -466,9 +466,9 @@ void setup_snakes(int hungry)
    s[cnt++] = new_snake(10,30,10, E,2);                        
    s[cnt++] = new_snake(12,30,10, E,3);                        
    s[cnt++] = new_snake( 8,50,10, W,4);                        
-   s[cnt++] = new_snake(10,50,10, W,5);                        
-   s[cnt++] = new_snake(12,50,10, W,6);                        
-   s[cnt++] = new_snake( 4,40,10, S,7);                        
+   //s[cnt++] = new_snake(10,50,10, W,5);                        
+   //s[cnt++] = new_snake(12,50,10, W,6);                        
+   //s[cnt++] = new_snake( 4,40,10, S,7);                        
 
    /* Draw each snake */                                       
    VGA_clear();

@@ -147,7 +147,7 @@ void parse_tags(int tagPtr) {
     *nextFreePagePtr = lowMemStart;//zones[0].base;
     
    // printk("nextFreePage: %d\n", nextFreePage);
-    printk("parsing tags finished.\n");
+    printk("*****MULTIBOOT PARSING SUCCESS*****\n");
 
     /*
     int loop = 1;

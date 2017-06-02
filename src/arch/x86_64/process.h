@@ -37,6 +37,7 @@ typedef struct Process {
     struct Process *nextSched;
     struct Process *prevSched;
     struct Process *nextBlock;
+    int blocked;
 } Process;
 
 
@@ -68,6 +69,7 @@ typedef struct ProcessQueue {
     char *read; //read
     char *write; //write
     char buffer[4096];
+
 } ProcessQueue;
 
 void PROC_block_on(ProcessQueue *pq, int enable_ints);

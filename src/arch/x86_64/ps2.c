@@ -33,6 +33,7 @@
 
 #define INVALID -1
 
+#define INITIAL 9
 #define DEFAULT 10
 #define WAITING_FOR_ACK 11
 #define SCANNING_ENABLING_REQUEST_SENT 12
@@ -69,40 +70,28 @@ void cmd_queue_init() {
 
     cmdQ= malloc(sizeof(CommandQueue));
     cmdQ->head = NULL;
-    
-
-
-
-    //temporarily setting this for debugging
-    //cmdQ->state = WAITING_FOR_SCAN_CODE;
-
-
-    
 
     //initialize state machine state
     cmdQ->state = DEFAULT;
-
     //add all init commands to queue
-    add_to_queue(KEYBOARD_RESET);
-    //KEYBOARD_RESET
-        //- need to get "self test passed"
-
+    //add_to_queue(KEYBOARD_RESET);
     add_to_queue(SET_SCAN_1);
     add_to_queue(ENABLE_SCANNING);
 
-    
+    /*
+    int loop = 1;
+    while(loop) {
+
+    }*/
+
+    //temporarily setting this for debugging
+    cmdQ->state = WAITING_FOR_SCAN_CODE;   
 }
 
 //call this in kbd_isr
 void kbd_isr() {
 
     uint8_t data = inb(PS2_DATA);
-
-    /*
-    int loop = 1;
-    while (loop) {
-
-    }*/
 
     if (cmdQ->state != WAITING_FOR_SCAN_CODE) {
         //what if we get an ACK when we aren't waiting for one? what does that mean
@@ -116,12 +105,21 @@ void kbd_isr() {
             else if (cmdQ->state == SCANNING_ENABLING_REQUEST_SENT) {
                 cmdQ->state = WAITING_FOR_SCAN_CODE;
                 remove_queue_head();
-                }
+
+            }
+            else {
+                
+            }
         }
 
         //if queue is not empty, send the command
         if (cmdQ->head) {
             send_queue_head();
+    /*
+            int loop =1;
+            while(loop) {
+
+            }*/
         }           
     }
     else {
@@ -134,11 +132,18 @@ void kbd_isr() {
     }*/
         char key = get_scancode(data); // stuff with this needs to be fixed.. like shift and tab etc
         write_kbd_buffer(key);
-        PROC_unblock_head(kbdPQ);      
+        PROC_unblock_head(kbdPQ);  
     }
 }
 
 void remove_queue_head() {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
 
     kbdCommand *head = cmdQ->head;
 
@@ -152,10 +157,27 @@ void remove_queue_head() {
         printk("well this is bad. trying to remove a null head.\n");
     }
 
+    if (interrupts) {
+        sti();
+    }
+
 }
 
 //dont remove the head here!
 void send_queue_head() {
+
+    /*
+    int loop = 1;
+    while (loop) {
+
+    }*/
+
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
 
     outb(PS2_CMD, cmdQ->head->command);
     
@@ -164,6 +186,30 @@ void send_queue_head() {
     }
     else {
         cmdQ->state = WAITING_FOR_ACK;
+    }
+
+    if (interrupts) {
+        sti();
+    }
+
+}
+
+void add_to_queue(int cmd) {
+    
+    kbdCommand *new = malloc(sizeof(kbdCommand));
+    kbdCommand *iter = cmdQ->head;
+
+    new->command = cmd;
+    new->next = NULL;
+
+    if (!cmdQ->head) {
+        cmdQ->head = new;
+    }
+    else {
+        while (iter->next) {
+            iter = iter->next;
+        }
+        iter->next = new;
     }
 
 }
@@ -259,13 +305,7 @@ void write_kbd_buffer(char toAdd) {
 }
 
 
-void add_to_queue(int cmd) {
-    
-    kbdCommand *new = malloc(sizeof(kbdCommand));
 
-    new->command = cmd;
-    new->next = NULL;
-}
 
 
 void poll_and_write(int port, int data) {
