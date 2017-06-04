@@ -12,6 +12,8 @@
 extern char ps2_poll_read(void);
 extern void ps2_initialize(void);
 
+extern void kbd_init(void);
+
 void keyboard_initialize(void);
 int get_scancode(uint8_t);
 int get_char();

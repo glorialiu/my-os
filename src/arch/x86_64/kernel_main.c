@@ -8,6 +8,7 @@
 #include "process.h"
 #include "kmalloc.h"
 #include "block.h"
+#include "vfs.h"
 /*
 void printk_tests() {
     printk("******TEST SCRIPT FOR PRINTK******\n");
@@ -266,6 +267,7 @@ void kmain(int tagPtr) {
 
     /* KEYBOARD STUFF */
     cmd_queue_init();
+    //PROC_create_kthread(&kbd_init, NULL);
     PROC_create_kthread(&keyboard_io, NULL);
     /*
     PROC_create_kthread(&keyboard_io1_demo, NULL);
@@ -277,15 +279,24 @@ void kmain(int tagPtr) {
     */
 
     /* BLOCK DEVICE STUFF */
-    init_ata_read_queue();
-    init_block_devices();
 
-    uint16_t buffer[256];
+    int param1 = 1;
+    int param2 = 2;
 
-    //ata_read_block(0, buffer, 256);
 
-    //PROC_create_kthread(&block_test_thread, NULL);
+    ata_init();
+    PROC_create_kthread(&block_test_thread, NULL);
+    PROC_create_kthread(&block_test_thread, &param1);
+    PROC_create_kthread(&block_test_thread, &param2);
     
+    PROC_create_kthread(&read_mbr_block, NULL);
+    PROC_create_kthread(&read_bpb_block, NULL);
+    uint16_t buffer[256];
+    //poll_read_block(2, buffer);
+
+   // ata_read_block(2, buffer, 0);
+
+   // printk("should not be AA55: %x\n", buffer[255]);
 
     while(1) {
         //testing

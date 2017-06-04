@@ -73,10 +73,7 @@ void cmd_queue_init() {
 
     //initialize state machine state
     cmdQ->state = DEFAULT;
-    //add all init commands to queue
-    //add_to_queue(KEYBOARD_RESET);
-    add_to_queue(SET_SCAN_1);
-    add_to_queue(ENABLE_SCANNING);
+
 
     /*
     int loop = 1;
@@ -86,6 +83,15 @@ void cmd_queue_init() {
 
     //temporarily setting this for debugging
     cmdQ->state = WAITING_FOR_SCAN_CODE;   
+
+}
+
+void kbd_init(){
+    //add all init commands to queue
+    add_to_queue(KEYBOARD_RESET);
+    add_to_queue(SET_SCAN_1);
+    add_to_queue(ENABLE_SCANNING);
+    kexit();
 }
 
 //call this in kbd_isr

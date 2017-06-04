@@ -19,8 +19,8 @@ src_dir := src/arch/$(arch)
 build_dir := build/arch/$(arch)
 
 c_files := $(src_dir)/kernel_main.c $(src_dir)/vga.c $(src_dir)/memfuncs.c
-o_files := $(build_dir)/vga.o $(build_dir)/kernel_main.o $(build_dir)/memfuncs.o $(build_dir)/inline_asm.o $(build_dir)/ps2.o $(build_dir)/interrupt.o $(build_dir)/serial.o $(build_dir)/page_alloc.o $(build_dir)/page_table.o $(build_dir)/kmalloc.o $(build_dir)/process.o $(build_dir)/snakes.o $(build_dir)/block.o
-h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h $(src_dir)/inline_asm.h $(src_dir)/ps2.h $(src_dir)/interrupt.h $(src_dir)/serial.h $(src_dir)/page_alloc.h $(src_dir)/page_table.h $(src_dir)/kmalloc.h $(src_dir)/process.h $(src_dir)/snakes.h
+o_files := $(build_dir)/vga.o $(build_dir)/kernel_main.o $(build_dir)/memfuncs.o $(build_dir)/inline_asm.o $(build_dir)/ps2.o $(build_dir)/interrupt.o $(build_dir)/serial.o $(build_dir)/page_alloc.o $(build_dir)/page_table.o $(build_dir)/kmalloc.o $(build_dir)/process.o $(build_dir)/snakes.o $(build_dir)/block.o $(build_dir)/mbr.o $(build_dir)/vfs.o
+h_files := $(src_dir)/vga.h $(src_dir)/memfuncs.h $(src_dir)/inline_asm.h $(src_dir)/ps2.h $(src_dir)/interrupt.h $(src_dir)/serial.h $(src_dir)/page_alloc.h $(src_dir)/page_table.h $(src_dir)/kmalloc.h $(src_dir)/process.h $(src_dir)/snakes.h $(src_dir)/block.h $(src_dir)/mbr.h $(src_dir)/vfs.h
 
 .PHONY: all clean run iso
 
@@ -131,5 +131,13 @@ $(build_dir)/snakes.o: $(src_dir)/snakes.c $(src_dir)/snakes.h
 	$(CC) -c $< -o $@ $(FLAGS)
 
 $(build_dir)/block.o: $(src_dir)/block.c $(src_dir)/block.h
+	mkdir -p $(shell dirname $@)
+	$(CC) -c $< -o $@ $(FLAGS)
+
+$(build_dir)/mbr.o: $(src_dir)/mbr.c $(src_dir)/mbr.h
+	mkdir -p $(shell dirname $@)
+	$(CC) -c $< -o $@ $(FLAGS)
+
+$(build_dir)/vfs.o: $(src_dir)/vfs.c $(src_dir)/vfs.h
 	mkdir -p $(shell dirname $@)
 	$(CC) -c $< -o $@ $(FLAGS)

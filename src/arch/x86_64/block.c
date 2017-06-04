@@ -4,6 +4,7 @@
 #include "inline_asm.h"
 #include "interrupt.h"
 #include "process.h"
+#include "mbr.h"
 
 #define REG_ERROR 1
 #define REG_SECT_CNT 2
@@ -16,11 +17,20 @@
 #define IDENTIFY_CMD 0xEC
 #define ATA_CMD_IDENTIFY_PACKET 0xA1
 
+#define CACHE_FLUSH 0xE7
+
 #define ATADEV_PATAPI 1
 #define ATADEV_SATAPI 2
 #define ATADEV_PATA 3
 #define ATADEV_SATA 4
 #define ATADEV_UNKNOWN 0
+
+#define NIEN 2
+
+#define BUSY 1<<7
+#define DRQ 1<<3
+#define ERROR 1
+#define MULTIPLE_COMMAND 0xC4
 
 BlockDev *blockDevHead;
 
@@ -39,49 +49,52 @@ void init_ata_read_queue() {
 
 }
 
-void block_test_thread() {
+void block_test_thread(int block) {
     uint16_t buffer[256];
-    printk("block test thread called\n");
+    printk("block test thread %d called\n", block);
+    ata_read_block(block, buffer, 256);
+    printk("TEST: %x\n", buffer[255]);
+    //printk("finished reading buffer\n");
+    kexit();
+}
+void read_mbr_block() {
+    uint16_t buffer[256];
     ata_read_block(0, buffer, 256);
-    printk("finished reading buffer\n");
+    printk("MBR TEST: %x\n", buffer[255]);
+    parse_mbr(buffer);
+
+    kexit();
+}
+
+void read_bpb_block() {
+    uint16_t buffer[256];
+    ata_read_block(2048, buffer, 256);
+    //printk("MBR TEST: %x\n", buffer[255]);
+    parse_bpb(buffer);
+
+    kexit();
 }
 
 void ata_read_block(uint64_t lba, void *dst, uint64_t len) {
     printk("ata read block called\n");
     //malloc and intialize command
+
     ATACmd *new = malloc(sizeof(ATACmd));
   
-    new->dst = malloc(len);
+    new->dst = dst;
     new->lba = lba;
     new->len = len;
     new->queue = ataPQ;
     new->next = NULL;
     new->complete = FALSE;
     
-    //turn off interrupts
-    int interrupts = FALSE;
-    if (are_interrupts_enabled()) {
-        interrupts = TRUE;
-        cli();
-    }
-
-    int loop = 1;
-    while(loop) {
-
-    }
-
     //enqueue command
     enqueue_command(new);
 
     while (!new->complete) {
         //PROC_block_on
-        PROC_block_on(ataPQ, interrupts);
-    }
-    
-  //  free(new);
-
-    if (interrupts) {
-        sti();
+        PROC_block_on(ataPQ, TRUE);
+        cli();
     }
 
     
@@ -95,7 +108,7 @@ void dequeue_command() {
     }
     else {
         ataCmdHead->complete = TRUE;
-        ATACmd *temp = ataCmdHead;
+        //ATACmd *temp = ataCmdHead;
         ataCmdHead = ataCmdHead->next;
     
        // free(temp);
@@ -105,6 +118,7 @@ void dequeue_command() {
 
 void enqueue_command(ATACmd *cmd) {
 
+    printk("enqueue command\n");
     ATACmd *iter;
     //if queue head is null, add to queue and send read command right away
     if (!ataCmdHead) {
@@ -125,29 +139,36 @@ void enqueue_command(ATACmd *cmd) {
 
 void ata_isr() {
 
-    int blockNum;
     printk("made it into the isr\n");
+
+    inb(tempDev->ataBase + CMD_PORT);
+
+    int blockNum;
     
-    //read in data to buffer stored in command at head of queue
+    
     if (!ataCmdHead) {
-        printk("ataCmdHead is null in ISR...problem\n");
+        printk("non data related interrupt\n");
     }
     else {
+    
+        while (inb(tempDev->ataMaster) & BUSY) {
 
-        char * dstBuffer = ataCmdHead->dst;
-        insw(tempDev->ataBase, dstBuffer, 256);
+        }
+        if (inb(tempDev->ataMaster) & DRQ) {
 
-        //unblock head
-    /*
-        int loop = 1;   
-        while(loop) {
-        }*/
-        PROC_unblock_head(ataPQ);
-        //remove head command 
-        dequeue_command();
+            printk("data read\n")
+;            uint16_t * dstBuffer = ataCmdHead->dst;
+            insw(tempDev->ataBase, dstBuffer, 256);
+            //printk("hi: %x\n", dstBuffer[255]);
 
-        //clears interrupt. dont hard code this lol
-        inb(0x1F7);
+            dequeue_command();
+            PROC_unblock_head(ataPQ);
+            
+        }
+        else {
+            
+            printk("ERROR: data not read\n");
+        }
 
         //send next read command
         if (ataCmdHead) {
@@ -155,30 +176,44 @@ void ata_isr() {
             read_block((BlockDev *) tempDev, blockNum, ataCmdHead->dst);
         }
     }
+
+        //clears interrupt. dont hard code this lol
+        if (inb(tempDev->ataMaster) & BUSY) {
+            printk("error\n");
+        }
+        //outb(0x3F6, 0);
     
 }
+
 
 //TODO: this isn't done
 //assume that destination is large enough!
 int read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
 
+
+    //printk("read block called\n");
     ATABlockDev *this = (ATABlockDev *) dev;
 
-    uint8_t sectorcount_hi, sectorcount_lo;
+    uint8_t sectorcount_hi = 0;
+    uint8_t sectorcount_lo = 1;
 
-    uint8_t lba1,lba2,lba3,lba4,lba5,lba6;
+    uint64_t lba1,lba2,lba3,lba4,lba5,lba6;
 
-    //TODO:what is "sectorcount"??
+    uint64_t lba = blk_num; //temp
 
-    lba1 = blk_num & 0xFF;
-    lba2 = blk_num >> 8 & 0xFF;
-    lba3 = blk_num >> 16 & 0xFF;
-    lba4 = blk_num >> 24 & 0xFF;
+    lba1 = blk_num & 0xFF;// (lba & 0x000000FF) >> 0;//
+    lba2 = blk_num >> 8 & 0xFF; //(lba & 0x0000FF00) >> 8;//
+    lba3 = blk_num >> 16 & 0xFF; //(lba & 0x00FF0000) >> 16;//
+    lba4 = blk_num >> 24 & 0xFF; // (lba & 0xFF000000) >> 24;//
     lba5 = blk_num >> 32 & 0xFF;
     lba6 = blk_num >> 40 & 0xFF;
 
-    outb(this->ataBase + REG_DEV_SELECT, 0x40 | (this->slave << 4));
+    /*
+    while (inb(this->ataBase+CMD_PORT) & 0x80) {
+    }*/
 
+    outb(this->ataBase + REG_DEV_SELECT, 0x40 | (this->slave << 4));
+    
     outb (this->ataBase + 2, sectorcount_hi);
     outb (this->ataBase + 3, lba4);
     outb (this->ataBase + 4, lba5);
@@ -191,30 +226,36 @@ int read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
 
     outb(this->ataBase + CMD_PORT, 0x24);
 
-    //TODO:read them all into dest with insw . this should be moved to the isr
+   // insw(this->ataBase, dest, 256);
 
-    insw(this->ataBase, dest, 256);
+    /*
+    int loop = 1;
+    while(loop) {
+}
+    /*
+    inb(0x3F6);
+    inb(0x3F6);
+    inb(0x3F6);
+    inb(0x3F6);*/
+
 
 }
 
-void init_block_devices() {
+void ata_init() {
+
+    init_ata_read_queue();
     
     ATABlockDev *device = malloc(sizeof(ATABlockDev));
 
     device->requestHead = NULL;
     device->requestTail = NULL;
 
-    int isPrimarySlave, isPrimaryMaster, isSecondarySlave, isSecondaryMaster;    
-
+   /* int isPrimarySlave, isPrimaryMaster, isSecondarySlave, isSecondaryMaster; 
     Bus primary, secondary;
-    
     primary.base = 0x1F0;
     primary.control = 0x3F6;
     secondary.base = 0x170;
-    secondary.control = 0x376;
-
-    //temporarily hard coding for debugging: found atapi device in secondary master
-    //no other drives exist
+    secondary.control = 0x376;*/
 
     device->slave = 0;
     device->ataBase = 0x1F0;
@@ -224,25 +265,65 @@ void init_block_devices() {
     //ata
     tempDev = device;
 
+    IRQ_clear_mask(2);
+    IRQ_clear_mask(14); 
+
     ata_identify(device);
-     
-    //temporarily turning off interrupts for debug purposes
-    //IRQ_clear_mask(2);
-    //IRQ_clear_mask(14); 
+
+    
+    
+    /*
+    //disable interrupts on slave
+    outb(device->ataBase+REG_DEV_SELECT, 0x10);     //select slave
+    ata_io_wait(device->ataMaster);
+    outb(device->ataMaster, NIEN);
+    ata_io_wait(device->ataMaster);   
+    outb(device->ataBase+REG_DEV_SELECT, 0); //select master
+    ata_io_wait(device->ataMaster);
+    if (inb(device->ataMaster) & ( BUSY | DRQ ) == 0) {
+        outb(device->ataBase + REG_SECT_NUM, 1);
+    }
+    else {
+        printk("failed\n");    
+    } 
+    outb(device->ataBase + CMD_PORT, MULTIPLE_COMMAND);
+
+    if (inb(device->ataMaster) & ERROR) {
+        printk("error w multiple command\n");    
+    }
+
+    inb(device->ataBase);//to clear interrupt
+    outb(device->ataMaster, 0); // clear nien to enable interrupts
+  */
+    
+
+
+
 
     //TODO:register device
 
-    //inb(device->ataBase + CMD_PORT);
-    uint16_t buffer[256];
-    read_block((BlockDev *) device, 0, buffer);
-    inb(device->ataBase + CMD_PORT);
-    printk("should be AA55 if everything is working: %x\n", buffer[255]);
+
 
     /*
-    int i = 0;
-    for (i = 0; i < 256; i++) {
-        printk("%x ", buffer[i]);
-    }*/
+    uint16_t buffer[256];
+    read_block((BlockDev *) device, 0, buffer);
+    printk("should be AA55 if everything is working: %x\n", buffer[255]);
+
+    */
+    //read_block((BlockDev *) device, 2048, buffer);
+    //read_bpb(buffer);
+    
+   // printk("jmp: %x\n", buffer[0]);
+    //inb(device->ataBase + CMD_PORT);
+    //insw(device->ataBase, buffer, 256);
+
+
+    //printk("should be AA55 if everything is working: %x\n", buffer[255]);
+    //parse_mbr(buffer);
+
+    //temporarily turning off interrupts for debug purposes
+
+
 
 }
 
@@ -336,10 +417,7 @@ void ata_identify(ATABlockDev *device) {
     int i;
     for (i = 0; i < 256; i++){
 			buffer[i] = inw(device->ataBase);
-	}
-    for (i = 0; i < 256; i++) {
-        printk("%d ", buffer[i]);
-    }*/
+	}*/
 
     //check 83rd uint16_t to see if 48 bit LBA 
     if (!(buffer[83] & (1<<10))) {
@@ -353,8 +431,8 @@ void ata_identify(ATABlockDev *device) {
     uint64_t length = *( (uint64_t *) (buffer + 100));
     parent->totalLen = length;
 
-    //printk("%d %d %d %d\n",  buffer[100],  buffer[101],  buffer[102],  buffer[103]);
-    //printk("length: %d\n", length);
+    outb(device->ataBase + REG_DEV_SELECT, 0x40 | (device->slave << 4));
+    ata_io_wait(device->ataMaster);
 
 }
 

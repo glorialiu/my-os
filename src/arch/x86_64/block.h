@@ -56,7 +56,7 @@ struct ATABlockDev *ata_probe(uint16_t base, uint16_t master, uint8_t slave, cha
 
 int BLK_register(BlockDev *dev);
 int read_block(BlockDev *dev, uint64_t blk_num, void *dest);
-void init_block_devices();
+void ata_init();
 void ata_identify(ATABlockDev *device);
 void ata_soft_reset(Bus *dev);
 void ata_io_wait(uint16_t);
@@ -69,8 +69,11 @@ void ata_read_block(uint64_t lba, void *dst, uint64_t len);
 void dequeue_command();
 void enqueue_command(ATACmd *cmd);
 
-
-extern void block_test_thread();
-
+extern void block_test_thread(int);
 
 void printType(int type);
+
+extern void read_mbr_block();
+extern void read_bpb_block();
+
+extern void poll_read_block(int block_num, uint16_t buffer);

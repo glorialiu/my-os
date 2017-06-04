@@ -39,6 +39,12 @@ void init_syscall_handler_table() {
 //add process to the main process linked list
 void add_proc(Process *new) {
 
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
     if (headProcPtr == NULL) {
         headProcPtr = new;
         tailProcPtr = new;
@@ -47,10 +53,20 @@ void add_proc(Process *new) {
         tailProcPtr->next = new;
         tailProcPtr = new;
     }
+
+    if (interrupts) {
+        sti();
+    }
 }
 
 //should only be called on a proc in the linked list, error check for this?
 void remove_proc(Process *cur) {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
 
     Process *procIter = headProcPtr;
     Process *prevProc = headProcPtr;
@@ -64,10 +80,20 @@ void remove_proc(Process *cur) {
     else {
         prevProc->next = procIter->next;
     }
+
+    if (interrupts) {
+        sti();
+    }
 }
 
 //add process to scheduler linked list
 void add_proc_to_scheduler(Process *new) {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
 
     //if the scheduleHeadPtr is pointing to the main process, overwrite
     //its just a placeholder for when there are no processes
@@ -81,9 +107,19 @@ void add_proc_to_scheduler(Process *new) {
 
         scheduleTailPtr = new;
     }
+
+    if (interrupts) {
+        sti();
+    }
 }
 
 void remove_head_from_scheduler() {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
     
     Process *temp = scheduleHeadPtr;
 
@@ -109,6 +145,10 @@ void remove_head_from_scheduler() {
         //debug
         printk("scheduleHeadPtr is mainProcPtr in remove_head, shouldn't be happening\n");
     }
+
+    if (interrupts) {
+        sti();
+    }
     
     
 }
@@ -125,10 +165,13 @@ struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg) {
     new->rsp = alloc_stack_vpage(0); //rename alloc_new_stack() to make more sense?
     new->ss = 0;
     new->flags = 512;//flag with interrupts enabled;
-    new->rdi = arg;
+    
     new->rsp = new->rsp - 8;
     *((uint64_t *) new->rsp) = kexit;
 
+    if (arg) {
+        new->rdi = *(uint64_t *) arg;
+    }
     new->pid = id++;
 
     //check all fields are filled
@@ -169,6 +212,12 @@ void PROC_run(void) {
 
 
 void PROC_reschedule(void) {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
     
     //scheduleHeadPtr should only be NULL prior to any thread creation
     //if scheduleHeadPtr == mainProcPtr, there are no processes left
@@ -196,8 +245,13 @@ void PROC_reschedule(void) {
         else {
             //if the current process isn't blocked or didn't exit and isn't the mainProcPtr
             //essentially if it can still run, schedule it again
+
             add_proc_to_scheduler(curr_proc);
         }
+    }
+
+    if (interrupts) {
+        sti();
     }
 }
 
@@ -217,9 +271,19 @@ void kexit(void) {
 
 void exit_isr() {
 
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
     //remove the process from the main linked list of procs TODO: check if these funcs are right
     remove_proc(curr_proc);
-    //don't need to remove it from the scheduler because curr_proc is already not in the scheduler bc its running
+    //don't need to remove it from the scheduler because curr_proc is already not in the scheduler bc its running, unless its the last one and we just rescheduled it
+
+    if (scheduleHeadPtr==curr_proc) {
+        remove_head_from_scheduler();
+    }
 
     //free curr_proc and everything in it
     //TODO: free stack at some point
@@ -232,7 +296,15 @@ void exit_isr() {
     //TODO: check assembly code
 
     // reschedule
+
     PROC_reschedule();
+
+    if (interrupts) {
+        sti();
+    }
+
+    printk("exited with success!\n");
+
 }
 
 
@@ -273,23 +345,52 @@ void PROC_block_on(ProcessQueue *pq, int enable_ints) {
 }
 
 void PROC_unblock_head(ProcessQueue *pq) {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
     add_proc_to_scheduler(pq->head);
     remove_blockq_head(pq);
+
+    if (interrupts) {
+        sti();
+    }
     
 }
 
 //remove the head of the block queue and mark it was unblocked
 void remove_blockq_head(ProcessQueue *pq) {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
     Process *temp = pq->head;
     pq->head = pq->head->nextBlock;
 
     temp->nextBlock = NULL;
 
     temp->blocked = FALSE;
+
+    if (interrupts) {
+        sti();
+    }
 }
 
 //add curr_proc to the block queue and mark it as blocked
 void add_curr_to_block_queue(ProcessQueue *pq) {
+
+    int interrupts = FALSE;
+    if (are_interrupts_enabled()) {
+        interrupts = TRUE;
+        cli();
+    }
+
     Process *iter;
     
     if (!pq->head) {
@@ -303,7 +404,13 @@ void add_curr_to_block_queue(ProcessQueue *pq) {
         iter->nextBlock = curr_proc;
     }
     curr_proc->blocked = TRUE;
+
+    if (interrupts) {
+        sti();
+    }
 }
+
+
 
 
 //TODO: this has never been tested
