@@ -50,19 +50,15 @@ BlockDev *blockDevHead = NULL;
 
 void init_ata_read_queue() {
     ataPQ = malloc(sizeof(ProcessQueue));
-
     ataPQ->head = NULL;
-
     ataCmdHead = NULL;
 
 }
 
 void block_test_thread(int block) {
     uint16_t buffer[256];
-    //printk("block test thread %d called\n", block);
     ata_read_block(block, buffer, 256);
     printk("CHECK: %x\n", buffer[255]);
-    //printk("finished reading buffer\n");
     kexit();
 }
 void read_mbr_block() {
@@ -77,14 +73,11 @@ void read_mbr_block() {
 void read_bpb_block() {
     uint16_t buffer[256];
     ata_read_block(2048, buffer, 256);
-    //printk("MBR TEST: %x\n", buffer[255]);
     parse_bpb(buffer);
-
     kexit();
 }
 
 void ata_read_block(uint64_t lba, void *dst, uint64_t len) {
-    //printk("ata read block called\n");
     //malloc and intialize command
 
     ATACmd *new = malloc(sizeof(ATACmd));
@@ -100,7 +93,6 @@ void ata_read_block(uint64_t lba, void *dst, uint64_t len) {
     enqueue_command(new);
 
     while (!new->complete) {
-        //PROC_block_on
         PROC_block_on(ataPQ, TRUE);
         cli();
     }
@@ -119,24 +111,24 @@ void dequeue_command() {
         //ATACmd *temp = ataCmdHead;
         ataCmdHead = ataCmdHead->next;
     
-       // free(temp);
+       // free(temp); //dont free yet
     }
 }
 
 
 void enqueue_command(ATACmd *cmd) {
 
-    //printk("enqueue command\n");
     ATACmd *iter;
+
     //if queue head is null, add to queue and send read command right away
     if (!ataCmdHead) {
         ataCmdHead = cmd;
-        //send read command here!
-        int blockNum = cmd->lba; //temporarily doing this
-        ata_48_read_block((BlockDev *) currentDev, blockNum, cmd->dst);
+
+        int blockNum = cmd->lba;
+        ((BlockDev *) currentDev)->read_block((BlockDev *) currentDev, blockNum, cmd->dst);
     }
     else {
-        //if queue head is not null, add to queue
+        //if queue head is not null, add to end of queue
         iter = ataCmdHead;
         while (iter->next) {
             iter = iter->next;
@@ -146,8 +138,6 @@ void enqueue_command(ATACmd *cmd) {
 }
 
 void ata_isr() {
-
-    //printk("ISR CALLED\n");
 
     inb(currentDev->ataBase + CMD_PORT);
 
@@ -164,7 +154,6 @@ void ata_isr() {
         }
         if (inb(currentDev->ataMaster) & DRQ) {
 
-            //printk("data read\n")
             uint16_t * dstBuffer = ataCmdHead->dst;
             insw(currentDev->ataBase, dstBuffer, 256);
 
@@ -179,17 +168,15 @@ void ata_isr() {
 
         //send next read command
         if (ataCmdHead) {
-            blockNum = ataCmdHead->lba; //TODO: temprorary using lba as block num , do conversion later
-            ata_48_read_block((BlockDev *) currentDev, blockNum, ataCmdHead->dst);
+            blockNum = ataCmdHead->lba;
+            ((BlockDev *) currentDev)->read_block((BlockDev *) currentDev, blockNum, ataCmdHead->dst);
         }
     }
 
         //clears interrupt. dont hard code this lol
         if (inb(currentDev->ataMaster) & BUSY) {
-            printk("error\n");
+            printk("ERROR: ATA READ REQUEST\n");
         }
-        //outb(0x3F6, 0);
-    
 }
 
 ATABlockDev *ata_probe(uint16_t base, uint16_t master, uint8_t slave, char *name, uint8_t irq)
@@ -208,8 +195,6 @@ ATABlockDev *ata_probe(uint16_t base, uint16_t master, uint8_t slave, char *name
     return (BlockDev *) ata;
 }
 
-
-//TODO: this isn't done
 //assume that destination is large enough!
 int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
 
@@ -222,18 +207,15 @@ int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
 
     uint64_t lba1,lba2,lba3,lba4,lba5,lba6;
 
-    uint64_t lba = blk_num; //temp
+    uint64_t lba = blk_num; 
 
-    lba1 = blk_num & 0xFF;// (lba & 0x000000FF) >> 0;//
-    lba2 = blk_num >> 8 & 0xFF; //(lba & 0x0000FF00) >> 8;//
-    lba3 = blk_num >> 16 & 0xFF; //(lba & 0x00FF0000) >> 16;//
-    lba4 = blk_num >> 24 & 0xFF; // (lba & 0xFF000000) >> 24;//
+    lba1 = blk_num & 0xFF;
+    lba2 = blk_num >> 8 & 0xFF; 
+    lba3 = blk_num >> 16 & 0xFF; 
+    lba4 = blk_num >> 24 & 0xFF; 
     lba5 = blk_num >> 32 & 0xFF;
     lba6 = blk_num >> 40 & 0xFF;
 
-    /*
-    while (inb(this->ataBase+CMD_PORT) & 0x80) {
-    }*/
 
     outb(this->ataBase + REG_DEV_SELECT, 0x40 | (this->slave << 4));
     
@@ -249,23 +231,15 @@ int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
 
     outb(this->ataBase + CMD_PORT, 0x24);
 
-   // insw(this->ataBase, dest, 256);
-
-    /*
-    int loop = 1;
-    while(loop) {
-}
-    /*
-    inb(0x3F6);
-    inb(0x3F6);
-    inb(0x3F6);
-    inb(0x3F6);*/
-
-
 }
 
 void ata_register(BlockDev * newDevice) {
-    
+    if (!blockDevHead) {
+        blockDevHead = newDevice;
+    }
+    else {
+
+    }
 }
 
 void ata_init() {
@@ -280,6 +254,7 @@ void ata_init() {
     device->requestHead = NULL;
     device->requestTail = NULL;
 
+    
     //ata
     currentDev = device;
 
@@ -290,6 +265,7 @@ void ata_init() {
     ata_identify(device);
 
     //TODO:register device
+    ata_register((BlockDev *) device);
 
     
 
@@ -304,9 +280,6 @@ void ata_identify(ATABlockDev *device) {
     uint16_t buffer[256];
     
     int poll;
-
-   // inb(device->ataBase + CMD_PORT);
-   // inb(device->ataMaster);
 
     //clear nIEN bit to enable interrupts
     outb(device->ataMaster, 0);
@@ -354,13 +327,8 @@ void ata_identify(ATABlockDev *device) {
                 printk("NOT A DEVICE\n");
             }   
 
-
             //send IDENTIFY PACKET DEVICE cmd (ATAPI version of IDENTIFY)
             outb(device->ataBase + CMD_PORT, ATA_CMD_IDENTIFY_PACKET);
-
-            //sleep for a bit
-            //ata_io_wait(device->ataMaster);
-            //ata_io_wait(device->ataMaster);
 
             //poll just because
             poll = inb(device->ataBase + CMD_PORT);
@@ -381,13 +349,6 @@ void ata_identify(ATABlockDev *device) {
     //read in 512 bytes of data (256 words)
     insw(device->ataBase, buffer, 256);
 
-    //another way of reading in data? same results. debug info.
-    /*
-    int i;
-    for (i = 0; i < 256; i++){
-			buffer[i] = inw(device->ataBase);
-	}*/
-
     //check 83rd uint16_t to see if 48 bit LBA 
     if (!(buffer[83] & (1<<10))) {
         printk("doesn't support 48 bit lba\n");
@@ -396,7 +357,6 @@ void ata_identify(ATABlockDev *device) {
         asm("hlt");
     }
 
-    //TODO: not sure if this length is correct
     uint64_t length = *( (uint64_t *) (buffer + 100));
     parent->totalLen = length;
 

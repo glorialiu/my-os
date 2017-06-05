@@ -113,6 +113,26 @@ typedef struct LongDirEntry {
 extern void read_dir_test();
 
 
+typedef struct ListInode {
+
+    struct Inode ino;
+    /*
+    size_t length;
+    struct timeval time;
+    mode_t st_mode;
+    uid_t uid;
+    gid_t gid;
+    uint64_t ino_num;
+    //and other funcs
+    */
+    struct ListInode *next;
+    char *filename;
+    
+
+    
+    
+} ListInode;
+
 
 
 

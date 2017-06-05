@@ -261,10 +261,10 @@ void kmain(int tagPtr) {
    
     /* SNAKES STUFF */
     
-    setup_snakes(4);
+    ///setup_snakes(4);
 
 
-    PROC_run();
+    //PROC_run();
     
 
 
@@ -295,7 +295,7 @@ void kmain(int tagPtr) {
     PROC_create_kthread(&read_mbr_block, NULL);
     PROC_create_kthread(&read_bpb_block, NULL);
 
-    //PROC_create_kthread(&read_dir_test, NULL);
+    PROC_create_kthread(&read_dir_test, NULL);
 
     uint16_t buffer[256];
     //poll_read_block(2, buffer);
