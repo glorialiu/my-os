@@ -139,10 +139,7 @@ void free_snake(snake s){
    */
   snake sp;
   /* remove s from the community of snakes */
-    /*int loop = 1;
-    while (loop) {
 
-    }*/
   if ( s == allsnakes )
     allsnakes = allsnakes->others;
   else {
@@ -387,6 +384,8 @@ static void draw_snake(snake s){
 }
 
 static void erase_snake(snake s){
+
+
   int i;
   for(i=0;i<s->len;i++)
     VGA_display_attr_char(s->body[i].x, s->body[i].y, ' ',

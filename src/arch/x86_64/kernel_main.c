@@ -9,6 +9,7 @@
 #include "kmalloc.h"
 #include "block.h"
 #include "vfs.h"
+#include "snakes.h"
 /*
 void printk_tests() {
     printk("******TEST SCRIPT FOR PRINTK******\n");
@@ -259,10 +260,13 @@ void kmain(int tagPtr) {
     printk("TESTING MALLOC: value should be 5: %d\n", *testm1);
    
     /* SNAKES STUFF */
-    /*
+    
     setup_snakes(4);
+
+
     PROC_run();
-    */
+    
+
 
 
     /* KEYBOARD STUFF */
@@ -280,17 +284,19 @@ void kmain(int tagPtr) {
 
     /* BLOCK DEVICE STUFF */
 
-    int param1 = 1;
-    int param2 = 2;
-
+    
+    
 
     ata_init();
     PROC_create_kthread(&block_test_thread, NULL);
-    PROC_create_kthread(&block_test_thread, &param1);
-    PROC_create_kthread(&block_test_thread, &param2);
+    PROC_create_kthread(&block_test_thread, 1);
+    PROC_create_kthread(&block_test_thread, 2);
     
     PROC_create_kthread(&read_mbr_block, NULL);
     PROC_create_kthread(&read_bpb_block, NULL);
+
+    //PROC_create_kthread(&read_dir_test, NULL);
+
     uint16_t buffer[256];
     //poll_read_block(2, buffer);
 
@@ -304,6 +310,8 @@ void kmain(int tagPtr) {
         PROC_run();
         asm("hlt");
     }
+
+    
 }
 
 

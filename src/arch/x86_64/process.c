@@ -169,9 +169,11 @@ struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg) {
     new->rsp = new->rsp - 8;
     *((uint64_t *) new->rsp) = kexit;
 
+    new->rdi = arg;
+    /*
     if (arg) {
         new->rdi = *(uint64_t *) arg;
-    }
+    }*/
     new->pid = id++;
 
     //check all fields are filled
@@ -303,7 +305,7 @@ void exit_isr() {
         sti();
     }
 
-    printk("exited with success!\n");
+    //printk("exited with success!\n");
 
 }
 

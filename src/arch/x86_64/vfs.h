@@ -1,4 +1,8 @@
 #include <stdint.h>
+#include "types.h"
+
+extern void parse_bpb(uint16_t *buffer);
+
 typedef struct FatBPB {
     uint8_t jmp[3];
     char oem_id[8];
@@ -42,7 +46,9 @@ typedef struct timeval {
     uint64_t access_time;
     uint64_t create_time;
 };
-/*
+
+typedef struct Inode Inode;
+
 typedef int (*readdir_cb)(const char *, Inode *, void *);
 
 typedef struct Inode {
@@ -57,6 +63,7 @@ typedef struct Inode {
     //File * (*open) (Inode *);
     
     //directory operations
+    
     int (*readdir)(Inode *inode, readdir_cb cb, void *p);
     int (*unlink) (Inode *, const char *name); //delete a file from directory
 
@@ -66,5 +73,52 @@ typedef struct Inode {
 
 typedef struct Superblock {
 
-};*/
-extern void parse_bpb(uint16_t *buffer);
+    Inode *root_inode;
+    //Inode *(*read_inode) (Superblock *, int inode_num);
+    char *name;
+    char *type;
+
+} Superblock;
+
+
+
+
+typedef struct DirEntry {
+    uint8_t name[11];
+    uint8_t attr;
+    uint8_t nt;
+    uint8_t ct_tenths;
+    uint16_t ct;
+    uint16_t cd;
+    uint16_t ad;
+    uint16_t cluster_hi;
+    uint16_t mt;
+    uint16_t md;
+    uint16_t cluster_lo;
+    uint32_t size;
+} __attribute__((packed)) DirEntry;
+
+
+typedef struct LongDirEntry {
+    uint8_t order;
+    uint16_t first[5];
+    uint8_t attr;
+    uint8_t type;
+    uint8_t checksum;
+    uint16_t middle[6];
+    uint16_t zero;
+    uint16_t last[2];
+} __attribute__((packed)) LongDirEntry;
+
+extern void read_dir_test();
+
+
+
+
+
+
+
+
+
+
+

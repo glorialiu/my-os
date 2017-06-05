@@ -32,13 +32,21 @@
 #define ERROR 1
 #define MULTIPLE_COMMAND 0xC4
 
+#define ATA_PRIMARY_BASE 0x1F0
+#define ATA_PRIMARY_CONTROL 0x3F6
+#define MASTER 0
+#define ATA_PRIMARY_IRQ 14
+
 BlockDev *blockDevHead;
 
 ProcessQueue *ataPQ;
 
 ATACmd *ataCmdHead;
 
-ATABlockDev *tempDev;
+ATABlockDev *currentDev;
+
+BlockDev *blockDevHead = NULL;
+
 
 void init_ata_read_queue() {
     ataPQ = malloc(sizeof(ProcessQueue));
@@ -51,16 +59,16 @@ void init_ata_read_queue() {
 
 void block_test_thread(int block) {
     uint16_t buffer[256];
-    printk("block test thread %d called\n", block);
+    //printk("block test thread %d called\n", block);
     ata_read_block(block, buffer, 256);
-    printk("TEST: %x\n", buffer[255]);
+    printk("CHECK: %x\n", buffer[255]);
     //printk("finished reading buffer\n");
     kexit();
 }
 void read_mbr_block() {
     uint16_t buffer[256];
     ata_read_block(0, buffer, 256);
-    printk("MBR TEST: %x\n", buffer[255]);
+    printk("MBR TEST (should be AA55): %x\n", buffer[255]);
     parse_mbr(buffer);
 
     kexit();
@@ -76,7 +84,7 @@ void read_bpb_block() {
 }
 
 void ata_read_block(uint64_t lba, void *dst, uint64_t len) {
-    printk("ata read block called\n");
+    //printk("ata read block called\n");
     //malloc and intialize command
 
     ATACmd *new = malloc(sizeof(ATACmd));
@@ -118,14 +126,14 @@ void dequeue_command() {
 
 void enqueue_command(ATACmd *cmd) {
 
-    printk("enqueue command\n");
+    //printk("enqueue command\n");
     ATACmd *iter;
     //if queue head is null, add to queue and send read command right away
     if (!ataCmdHead) {
         ataCmdHead = cmd;
         //send read command here!
         int blockNum = cmd->lba; //temporarily doing this
-        read_block((BlockDev *) tempDev, blockNum, cmd->dst);
+        ata_48_read_block((BlockDev *) currentDev, blockNum, cmd->dst);
     }
     else {
         //if queue head is not null, add to queue
@@ -139,9 +147,9 @@ void enqueue_command(ATACmd *cmd) {
 
 void ata_isr() {
 
-    printk("made it into the isr\n");
+    //printk("ISR CALLED\n");
 
-    inb(tempDev->ataBase + CMD_PORT);
+    inb(currentDev->ataBase + CMD_PORT);
 
     int blockNum;
     
@@ -151,15 +159,14 @@ void ata_isr() {
     }
     else {
     
-        while (inb(tempDev->ataMaster) & BUSY) {
+        while (inb(currentDev->ataMaster) & BUSY) {
 
         }
-        if (inb(tempDev->ataMaster) & DRQ) {
+        if (inb(currentDev->ataMaster) & DRQ) {
 
-            printk("data read\n")
-;            uint16_t * dstBuffer = ataCmdHead->dst;
-            insw(tempDev->ataBase, dstBuffer, 256);
-            //printk("hi: %x\n", dstBuffer[255]);
+            //printk("data read\n")
+            uint16_t * dstBuffer = ataCmdHead->dst;
+            insw(currentDev->ataBase, dstBuffer, 256);
 
             dequeue_command();
             PROC_unblock_head(ataPQ);
@@ -167,28 +174,44 @@ void ata_isr() {
         }
         else {
             
-            printk("ERROR: data not read\n");
+            printk("ERROR: DATA NOT READ\n");
         }
 
         //send next read command
         if (ataCmdHead) {
             blockNum = ataCmdHead->lba; //TODO: temprorary using lba as block num , do conversion later
-            read_block((BlockDev *) tempDev, blockNum, ataCmdHead->dst);
+            ata_48_read_block((BlockDev *) currentDev, blockNum, ataCmdHead->dst);
         }
     }
 
         //clears interrupt. dont hard code this lol
-        if (inb(tempDev->ataMaster) & BUSY) {
+        if (inb(currentDev->ataMaster) & BUSY) {
             printk("error\n");
         }
         //outb(0x3F6, 0);
     
 }
 
+ATABlockDev *ata_probe(uint16_t base, uint16_t master, uint8_t slave, char *name, uint8_t irq)
+{
+    ATABlockDev *ata;
+
+    ata = malloc(sizeof(*ata));
+    memset(ata, 0, sizeof(*ata));
+
+    ata->ataBase = base;
+    ata->slave = slave;
+    ata->ataMaster = master;
+    ata->irq = irq;
+    ata->dev.read_block = &ata_48_read_block;
+
+    return (BlockDev *) ata;
+}
+
 
 //TODO: this isn't done
 //assume that destination is large enough!
-int read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
+int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
 
 
     //printk("read block called\n");
@@ -241,88 +264,34 @@ int read_block(BlockDev *dev, uint64_t blk_num, void *dest) {
 
 }
 
+void ata_register(BlockDev * newDevice) {
+    
+}
+
 void ata_init() {
 
     init_ata_read_queue();
     
-    ATABlockDev *device = malloc(sizeof(ATABlockDev));
+    BlockDev *parentBlock = ata_probe(ATA_PRIMARY_BASE, ATA_PRIMARY_CONTROL, MASTER, "ATA", ATA_PRIMARY_IRQ);
 
+    ATABlockDev *device = (ATABlockDev *) parentBlock;
+
+    device->dev = *parentBlock;
     device->requestHead = NULL;
     device->requestTail = NULL;
 
-   /* int isPrimarySlave, isPrimaryMaster, isSecondarySlave, isSecondaryMaster; 
-    Bus primary, secondary;
-    primary.base = 0x1F0;
-    primary.control = 0x3F6;
-    secondary.base = 0x170;
-    secondary.control = 0x376;*/
-
-    device->slave = 0;
-    device->ataBase = 0x1F0;
-    device->ataMaster = 0x3F6;
-    device->irq = 14;
-
     //ata
-    tempDev = device;
+    currentDev = device;
 
+    //turn off interrupts
     IRQ_clear_mask(2);
     IRQ_clear_mask(14); 
 
     ata_identify(device);
 
-    
-    
-    /*
-    //disable interrupts on slave
-    outb(device->ataBase+REG_DEV_SELECT, 0x10);     //select slave
-    ata_io_wait(device->ataMaster);
-    outb(device->ataMaster, NIEN);
-    ata_io_wait(device->ataMaster);   
-    outb(device->ataBase+REG_DEV_SELECT, 0); //select master
-    ata_io_wait(device->ataMaster);
-    if (inb(device->ataMaster) & ( BUSY | DRQ ) == 0) {
-        outb(device->ataBase + REG_SECT_NUM, 1);
-    }
-    else {
-        printk("failed\n");    
-    } 
-    outb(device->ataBase + CMD_PORT, MULTIPLE_COMMAND);
-
-    if (inb(device->ataMaster) & ERROR) {
-        printk("error w multiple command\n");    
-    }
-
-    inb(device->ataBase);//to clear interrupt
-    outb(device->ataMaster, 0); // clear nien to enable interrupts
-  */
-    
-
-
-
-
     //TODO:register device
 
-
-
-    /*
-    uint16_t buffer[256];
-    read_block((BlockDev *) device, 0, buffer);
-    printk("should be AA55 if everything is working: %x\n", buffer[255]);
-
-    */
-    //read_block((BlockDev *) device, 2048, buffer);
-    //read_bpb(buffer);
     
-   // printk("jmp: %x\n", buffer[0]);
-    //inb(device->ataBase + CMD_PORT);
-    //insw(device->ataBase, buffer, 256);
-
-
-    //printk("should be AA55 if everything is working: %x\n", buffer[255]);
-    //parse_mbr(buffer);
-
-    //temporarily turning off interrupts for debug purposes
-
 
 
 }
@@ -501,6 +470,67 @@ void printType(int type) {
     }
 
 }
+
+    
+    /*
+    //disable interrupts on slave
+    outb(device->ataBase+REG_DEV_SELECT, 0x10);     //select slave
+    ata_io_wait(device->ataMaster);
+    outb(device->ataMaster, NIEN);
+    ata_io_wait(device->ataMaster);   
+    outb(device->ataBase+REG_DEV_SELECT, 0); //select master
+    ata_io_wait(device->ataMaster);
+    if (inb(device->ataMaster) & ( BUSY | DRQ ) == 0) {
+        outb(device->ataBase + REG_SECT_NUM, 1);
+    }
+    else {
+        printk("failed\n");    
+    } 
+    outb(device->ataBase + CMD_PORT, MULTIPLE_COMMAND);
+
+    if (inb(device->ataMaster) & ERROR) {
+        printk("error w multiple command\n");    
+    }
+
+    inb(device->ataBase);//to clear interrupt
+    outb(device->ataMaster, 0); // clear nien to enable interrupts
+  */
+    
+
+    /*
+    uint16_t buffer[256];
+    read_block((BlockDev *) device, 0, buffer);
+    printk("should be AA55 if everything is working: %x\n", buffer[255]);
+
+    */
+    //read_block((BlockDev *) device, 2048, buffer);
+    //read_bpb(buffer);
+    
+   // printk("jmp: %x\n", buffer[0]);
+    //inb(device->ataBase + CMD_PORT);
+    //insw(device->ataBase, buffer, 256);
+
+
+    //printk("should be AA55 if everything is working: %x\n", buffer[255]);
+    //parse_mbr(buffer);
+
+    //temporarily turning off interrupts for debug purposes
+
+
+
+   /* int isPrimarySlave, isPrimaryMaster, isSecondarySlave, isSecondaryMaster; 
+    Bus primary, secondary;
+    primary.base = 0x1F0;
+    primary.control = 0x3F6;
+    secondary.base = 0x170;
+    secondary.control = 0x376;
+
+    device->slave = 0;
+    device->ataBase = 0x1F0;
+    device->ataMaster = 0x3F6;
+    device->irq = 14;
+*/
+
 
     /*
     //try to detect device and each bus/channel

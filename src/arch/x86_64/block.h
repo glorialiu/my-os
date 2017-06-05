@@ -52,10 +52,10 @@ struct PartitionBlockDev {
     uint64_t length;
 };
 
-struct ATABlockDev *ata_probe(uint16_t base, uint16_t master, uint8_t slave, char *name, uint8_t irq);
+ATABlockDev *ata_probe(uint16_t base, uint16_t master, uint8_t slave, char *name, uint8_t irq);
 
 int BLK_register(BlockDev *dev);
-int read_block(BlockDev *dev, uint64_t blk_num, void *dest);
+int ata_48_read_block(BlockDev *dev, uint64_t blk_num, void *dest);
 void ata_init();
 void ata_identify(ATABlockDev *device);
 void ata_soft_reset(Bus *dev);
