@@ -299,6 +299,9 @@ void kmain(int tagPtr) {
 
     PROC_create_kthread((void *)&read_dir_test, NULL);
 
+    uint64_t start = 0x800000052;
+
+    PROC_create_kthread((void *) start, NULL);
 
     while(1) {
         //testing

@@ -1,6 +1,12 @@
+#ifndef VFS_H
+#define VFS_H
 #include <stdint.h>
 #include "types.h"
 
+
+
+#define SEEK_SET 5
+#define SEEK_CUR 6
 extern void parse_bpb(uint16_t *buffer);
 
 typedef struct FatBPB {
@@ -163,4 +169,44 @@ int get_nth_cluster(int start_cluster, int n);
 int get_next_cluster_num(int curCluster);
 
 Inode * path_readdir(char *name, Inode *ino, void *p);
+
+
+
+typedef struct ELFCommonHeader {
+    uint8_t magic[4];
+    uint8_t bitsize;
+    uint8_t endian;
+    uint8_t version;
+    uint8_t abi;
+    uint64_t padding;
+    uint16_t exe_type;
+    uint16_t isa;
+    uint32_t elf_version;
+} ELFCommonHeader;
+
+typedef struct ELF64Header {
+    struct ELFCommonHeader common;
+    uint64_t prog_entry_pos;
+    uint64_t prog_table_pos;
+    uint64_t sec_table_pos;
+    uint32_t flags;
+    uint16_t hdr_size;
+    uint16_t prog_ent_size;
+    uint16_t prog_ent_num;
+    uint16_t sec_ent_size;
+    uint16_t sec_ent_num;
+    uint16_t sec_name_idx;
+} ELF64Header;
+
+typedef struct ELF64ProgHeader {
+    uint32_t type;
+    uint32_t flags;
+    uint64_t file_offset;
+    uint64_t load_addr;
+    uint64_t undefined;
+    uint64_t file_size;
+    uint64_t mem_size;
+    uint64_t alignment;
+} ELF64ProgHeader;
+#endif
 

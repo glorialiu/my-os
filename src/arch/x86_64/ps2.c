@@ -4,6 +4,8 @@
 #include "process.h"
 #include "types.h"
 
+#define NULL 0
+
 #define PS2_DATA 0x60
 #define PS2_CMD 0x64
 #define PS2_STATUS PS2_CMD

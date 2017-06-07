@@ -4,6 +4,7 @@
 #include "kmalloc.h"
 #include "block.h"
 #include "process.h"
+#include "elf_loader.h"
 
 #define UNUSED 0xE5
 #define EXTENDED_ENTRY 0xF
@@ -23,8 +24,6 @@
 
 #define MAX_FD 10
 
-#define SEEK_SET 5
-#define SEEK_CUR 6
 
 Fat32 globalFat;
 Fat32 *fatPtr = &globalFat;
@@ -87,9 +86,9 @@ int read(File *file, void *buffer, int count) {
 
     curCluster = get_nth_cluster(file->first_cluster, nth);
 
+
     //read the first cluster
     ata_read_block(cluster_to_sector_offset(curCluster), tempBuffer, 256);
-
 
     if (count < 512) {
         bytecpy(dstBuffer, ((uint8_t *) tempBuffer) + (curFd->offset % 512), count);
@@ -171,7 +170,7 @@ void parse_bpb(uint16_t *buffer) {
 
     globalFat = *(Fat32 *) buffer;
     
-
+ 
     if (fatPtr->signature != 0x29) {
         printk("bad signature\n");
         asm("hlt");    
@@ -345,23 +344,23 @@ ListInode *parse_single_entry(void *start, uint64_t *curNodeSize) {
 
 
 int get_next_cluster_num(int curCluster) {
-    int fat_table_start = 2048 + fatPtr->bpb.reserved_sectors;
-
-    int sector_offset = curCluster / fatPtr->bpb.bytes_per_sector;
-    int index_in_sector = curCluster / fatPtr->bpb.bytes_per_sector;
+    
+    int fat_sector = 2048 + fatPtr->bpb.reserved_sectors + ((curCluster * 4) / 512);
+    int fat_offset = (curCluster * 4) % 512;
 
     uint16_t fat_buffer[256]; 
-    ata_read_block(fat_table_start + sector_offset, fat_buffer, 256);
+    ata_read_block(fat_sector, fat_buffer, 256);
 
-    uint32_t new_cluster = ((uint32_t *) fat_buffer)[index_in_sector];
+    uint8_t *clusterChain = (uint8_t *) fat_buffer;
 
+    uint32_t chain = *((uint32_t *) &clusterChain[fat_offset]) &  0x0FFFFFFF;
 
+    if ((chain == 0) || ((chain & 0x0FFFFFFF) >= 0x0FFFFFF8)) { //TODO: more checks. "bad" sector?
 
-    if (new_cluster >= 0x0FFFFFF8) { //TODO: more checks. "bad" sector?
         return -1;
     }
 
-    return new_cluster;
+    return chain;
 }
 
 int get_nth_cluster(int start_cluster, int n) {
@@ -377,25 +376,25 @@ int get_nth_cluster(int start_cluster, int n) {
 //and fills the buffer with the next cluster's data
 // and returns the next cluster number;
 int get_next_cluster_data(int curCluster, uint16_t *buffer) {
-    int fat_table_start = 2048 + fatPtr->bpb.reserved_sectors;
-
-    int sector_offset = curCluster / fatPtr->bpb.bytes_per_sector;
-    int index_in_sector = curCluster / fatPtr->bpb.bytes_per_sector;
+    int fat_sector = 2048 + fatPtr->bpb.reserved_sectors + ((curCluster * 4) / 512);
+    int fat_offset = (curCluster * 4) % 512;
 
     uint16_t fat_buffer[256]; 
-    ata_read_block(fat_table_start + sector_offset, fat_buffer, 256);
+    ata_read_block(fat_sector, fat_buffer, 256);
 
-    uint32_t new_cluster = ((uint32_t *) fat_buffer)[index_in_sector];
+    uint8_t *clusterChain = (uint8_t *) fat_buffer;
 
+    uint32_t chain = *((uint32_t *) &clusterChain[fat_offset]) &  0x0FFFFFFF;
 
+    if ((chain == 0) || ((chain & 0x0FFFFFFF) >= 0x0FFFFFF8)) { //TODO: more checks. "bad" sector?
 
-    if (new_cluster >= 0x0FFFFFF8) { //TODO: more checks. "bad" sector?
         return -1;
     }
 
-    ata_read_block(cluster_to_sector_offset(new_cluster), buffer, 256);
 
-    return new_cluster;
+    ata_read_block(cluster_to_sector_offset(chain), buffer, 256);
+
+    return chain;
 }
 
 
@@ -565,31 +564,52 @@ void read_dir_test() {
 
 
     //printing out contents
-    sb.root_inode->readdir(sb.root_inode, recursive_readdir, 0);
+   // sb.root_inode->readdir(sb.root_inode, recursive_readdir, 0);
 
     //testing read
 
-    uint16_t test[100];
+   
 
+    /*
     Inode fakeNode;
     fakeNode.length = 92;
     fakeNode.ino_num = 9195;
+    */
+    
+    uint16_t test[200];
+    Inode *nodey = path_readdir("/boot/a.out", sb.root_inode, NULL);
+
+    File *fakeFile = open(nodey);
+    
+
+    
+    
+    fakeFile->lseek(fakeFile, 0, SEEK_SET);
+    fakeFile->read(fakeFile, (void*) test, 400);
+    ELFCommonHeader *elf = (ELFCommonHeader *) test;
+    ELF64Header *header = (ELF64Header *) test;
+
+    fakeFile->lseek(fakeFile, header->prog_table_pos, SEEK_SET);
+
+    uint16_t test2[50];
+
+    fakeFile->read(fakeFile, (void*)test2, header->prog_ent_size);
+    ELF64ProgHeader *ent = (ELF64ProgHeader *) test2;
+
+    load_program(fakeFile, ent);
+
+
+
+    /*
+    char *str = (char*) test;
+    printk("%s\n", str);
+
+
+   
 
 
     
-    Inode *nodey = path_readdir("/boot/grub/grub.cfg", sb.root_inode, NULL);
-
-
-    File *fakeFile = open(nodey);
-
-
-
-    fakeFile->lseek(fakeFile, 4, SEEK_SET);
-    fakeFile->read(fakeFile, (void*) test, fakeNode.length - 10);
-
-    char *str = (char*) test;
-
-    printk("%s\n", str);
+*/
 
 
 /*

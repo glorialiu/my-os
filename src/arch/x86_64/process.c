@@ -32,8 +32,18 @@ void init_syscall_handler_table() {
     set_sys_handler(3, yield_isr);
     set_sys_handler(4, exit_isr);
 
+    
+
     curr_proc = NULL;
     next_proc = NULL;
+}
+
+void getc_sys() {
+
+}
+
+void putc_sys(char c) {
+    printk("%c", c);
 }
 
 //add process to the main process linked list
@@ -324,7 +334,14 @@ void syscall_handler(int irq_num, int err, void *sys_num) {
     int num = *((int *) sys_num);
 
     //actually calls the system call
-    sys_impl[num]();
+
+    if (num == 6) {
+        putc_sys((char)err);
+    }
+    else {
+        sys_impl[num]();
+    }
+    
 }   
 
 

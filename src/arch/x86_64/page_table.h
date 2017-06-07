@@ -93,7 +93,7 @@ PT *get_PT(PD* entry,int);
 extern void *alloc_heap_vpage(page_table *pt);
 extern void *alloc_heap_vpages(page_table *pt, int numPages);
 extern void *alloc_stack_vpage(page_table *pt);
-void *alloc_user_vpage(page_table *pt);
+extern void *alloc_user_vpage(page_table *pt);
 
 extern void *free_page(void *address);
 extern void *free_pages(void *address, int num);
