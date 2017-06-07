@@ -52,6 +52,14 @@ struct PartitionBlockDev {
     uint64_t length;
 };
 
+typedef struct FileDescriptor {
+    uint64_t valid;
+    uint64_t offsetIntoBlock;
+    uint64_t curBlockNum;
+    uint64_t start;
+
+} FileDescriptor;
+
 ATABlockDev *ata_probe(uint16_t base, uint16_t master, uint8_t slave, char *name, uint8_t irq);
 
 int BLK_register(BlockDev *dev);

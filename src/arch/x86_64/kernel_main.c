@@ -257,27 +257,30 @@ void kmain(int tagPtr) {
     int*testm = malloc(8);
     int*testm1 = malloc(8);
     *testm1 = 5;
-    printk("TESTING MALLOC: value should be 5: %d\n", *testm1);
+    //printk("TESTING MALLOC: value should be 5: %d\n", *testm1);
    
     /* SNAKES STUFF */
-    
-    ///setup_snakes(4);
 
 
+    //setup_snakes(4);
     //PROC_run();
-    
+  
 
 
 
     /* KEYBOARD STUFF */
     cmd_queue_init();
     //PROC_create_kthread(&kbd_init, NULL);
-    PROC_create_kthread(&keyboard_io, NULL);
-    /*
+
+
+    PROC_create_kthread((void *)&keyboard_io, NULL);
+
+/*
     PROC_create_kthread(&keyboard_io1_demo, NULL);
     PROC_create_kthread(&keyboard_io2_demo, NULL);
     PROC_create_kthread(&keyboard_io3_demo, NULL);
-    */
+*/
+    
     /*printk("about to start polling\n");
     continuous_polling();
     */
@@ -286,23 +289,16 @@ void kmain(int tagPtr) {
 
     
     
-
     ata_init();
-    PROC_create_kthread(&block_test_thread, NULL);
-    PROC_create_kthread(&block_test_thread, 1);
-    PROC_create_kthread(&block_test_thread, 2);
+    PROC_create_kthread((void *)&block_test_thread, NULL);
+    PROC_create_kthread((void *)&block_test_thread, (void *)1);
+    PROC_create_kthread((void *)&block_test_thread, (void *) 2);
     
-    PROC_create_kthread(&read_mbr_block, NULL);
-    PROC_create_kthread(&read_bpb_block, NULL);
+    PROC_create_kthread((void *)&read_mbr_block, NULL);
+    PROC_create_kthread((void *)&read_bpb_block, NULL);
 
-    PROC_create_kthread(&read_dir_test, NULL);
+    PROC_create_kthread((void *)&read_dir_test, NULL);
 
-    uint16_t buffer[256];
-    //poll_read_block(2, buffer);
-
-   // ata_read_block(2, buffer, 0);
-
-   // printk("should not be AA55: %x\n", buffer[255]);
 
     while(1) {
         //testing

@@ -149,9 +149,9 @@ void ata_isr() {
     }
     else {
     
-        while (inb(currentDev->ataMaster) & BUSY) {
+       // while (inb(currentDev->ataMaster) & BUSY) {
 
-        }
+      //  }
         if (inb(currentDev->ataMaster) & DRQ) {
 
             uint16_t * dstBuffer = ataCmdHead->dst;

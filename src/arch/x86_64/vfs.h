@@ -41,15 +41,31 @@ typedef struct Fat32 {
     uint8_t boot_sig[2];
 } __attribute__((packed)) Fat32;
 
-typedef struct timeval {
-    uint64_t mod_time;
-    uint64_t access_time;
-    uint64_t create_time;
+struct timeval {
+    uint16_t mod_time;
+    uint16_t access_date;
+    uint16_t create_time;
+    uint16_t create_date;
 };
+
+
+typedef struct File {
+    /* "META DATA" */
+    int first_cluster;
+    int offset;
+    int valid;
+    int size;
+    
+    int (*close) (struct File **file);
+    int (*read) (struct File *file, char *dst, int len);
+    int (*lseek) (struct File *file, uint64_t offset, int mode);
+} File;
 
 typedef struct Inode Inode;
 
 typedef int (*readdir_cb)(const char *, Inode *, void *);
+
+
 
 typedef struct Inode {
     size_t length;
@@ -60,7 +76,7 @@ typedef struct Inode {
     uint64_t ino_num;
 
     //file operations
-    //File * (*open) (Inode *);
+    File * (*open) (Inode *);
     
     //directory operations
     
@@ -79,9 +95,6 @@ typedef struct Superblock {
     char *type;
 
 } Superblock;
-
-
-
 
 typedef struct DirEntry {
     uint8_t name[11];
@@ -127,18 +140,27 @@ typedef struct ListInode {
     */
     struct ListInode *next;
     char *filename;
-    
-
-    
-    
 } ListInode;
 
 
 
+void print_mode(mode_t mode);
+int recursive_readdir(char *name, Inode *ino, void *p);
+int get_next_cluster_data(int curCluster, uint16_t *buffer);
+ListInode *parse_single_entry(void *start, uint64_t *curNodeSize);
 
 
+int readdir_call(Inode *ino, readdir_cb cb, void *p);
+
+File *open(Inode *inode);
+void bytecpy(uint8_t *dst, uint8_t *src, int numBytes);
+int read(File *file, void *buffer, int count);
+int lseek(File *file, int offset, int mode);
+int close(File **file);
 
 
+int get_nth_cluster(int start_cluster, int n);
+int get_next_cluster_num(int curCluster);
 
-
+Inode * path_readdir(char *name, Inode *ino, void *p);
 
