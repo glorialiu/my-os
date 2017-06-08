@@ -4,6 +4,7 @@
 #define NUM_IRQS 10
 #define NUM_INTERRUPTS 256
 
+extern int syscall_flag;
 
 extern void idt_init(void);
 
@@ -40,7 +41,7 @@ extern void IRQ_set_handler(int irq, irq_handler_t handler, void *arg);
 
 
 void set_handler_in_IDT(IDT_entry *entry, uint64_t address, uint16_t segment, int tss_st_num);
-
+void set_handler_in_IDT_trap(IDT_entry *entry, uint64_t address, uint16_t segment, int tss_st_num);
 
 void set_handler(IDT_entry *entry, uint64_t address);
 

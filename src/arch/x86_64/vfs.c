@@ -24,6 +24,7 @@
 
 #define MAX_FD 10
 
+uint64_t prog_start = 0;
 
 Fat32 globalFat;
 Fat32 *fatPtr = &globalFat;
@@ -597,6 +598,13 @@ void read_dir_test() {
     ELF64ProgHeader *ent = (ELF64ProgHeader *) test2;
 
     load_program(fakeFile, ent);
+
+    prog_start = header->prog_entry_pos;
+
+    syscall_flag = TRUE;
+
+
+    PROC_create_kthread((void *) prog_start, NULL);
 
 
 

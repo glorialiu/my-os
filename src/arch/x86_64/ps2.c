@@ -250,7 +250,7 @@ char read_kbd_buffer() {
     if (interrupts) {
         sti();
     }
-
+    //IRQ_end_of_interrupt(33);
     return newChar;
 }
 
@@ -263,6 +263,9 @@ char getc() {
     }
 
     while(kbdPQ->read == kbdPQ->write) {
+        //int loop = 1;
+        //while (loop) {
+        //}
         PROC_block_on(kbdPQ, TRUE);
         cli();
     }
@@ -302,6 +305,7 @@ void write_kbd_buffer(char toAdd) {
     }
 
     *kbdPQ->write++ = toAdd;
+
 
     if (kbdPQ->write >= kbdPQ->buffer + KBD_BUFFER_LEN) {
         kbdPQ->write = &kbdPQ->buffer[0];

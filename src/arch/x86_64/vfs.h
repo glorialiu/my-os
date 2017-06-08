@@ -7,6 +7,8 @@
 
 #define SEEK_SET 5
 #define SEEK_CUR 6
+
+extern int syscall_flag;
 extern void parse_bpb(uint16_t *buffer);
 
 typedef struct FatBPB {
@@ -170,7 +172,7 @@ int get_next_cluster_num(int curCluster);
 
 Inode * path_readdir(char *name, Inode *ino, void *p);
 
-
+extern uint64_t prog_start;
 
 typedef struct ELFCommonHeader {
     uint8_t magic[4];

@@ -62,7 +62,7 @@ void syscall(int unused1, int unused2, int sys_num);
 void remove_proc(Process *cur);
 
 extern void init_syscall_handler_table();
-
+void getc_sys();
 
 typedef struct ProcessQueue {
     struct Process *head;

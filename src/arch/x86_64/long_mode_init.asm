@@ -9,6 +9,7 @@ extern irq_c_handler
 extern next_proc
 extern curr_proc
 
+extern syscall_flag
 global irq_gpf_handler
 global irq_pf_handler
 global irq_df_handler
@@ -279,6 +280,7 @@ extern GDT
 extern CS_start
 
 extern tags
+extern syscall
 
 section .text
 bits 64
@@ -297,8 +299,6 @@ long_mode_start:
     mov es, ax
     mov fs, ax
     mov gs, ax
-    
-
 
     call kmain
     hlt
@@ -433,6 +433,8 @@ common_irq_handler_2:
     mov [rbx + 0x60], rax
     mov rax, [rsp + 0x68] ;save rsi
     mov [rbx + 0x68], rax
+
+
     mov rax, [rsp + 0x70] ;save rdi
     mov [rbx + 0x70], rax
 
@@ -544,6 +546,8 @@ no_swap_needed:
 
     pop rsi
     pop rdi
+
+
 
     iretq
 

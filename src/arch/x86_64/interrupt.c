@@ -63,6 +63,8 @@ struct IOPB io_bitmap;
 // GLOBAL DESCRIPTOR TABLE
 struct GDT_entry GDT[NUM_GDT_ENTRIES];
 
+int syscall_flag = FALSE;
+
 
 extern int tss;
 extern int gdt64;
@@ -118,7 +120,7 @@ void idt_init() {
     
 
     // set handler for system calls
-    set_handler_in_IDT(&IDT_table[123], (uint64_t) &irq_handler123, KERNEL_SEGMENT, 4);
+    set_handler_in_IDT_trap(&IDT_table[123], (uint64_t) &irq_handler123, KERNEL_SEGMENT, 0);//4);
     IRQ_set_handler(123, syscall_handler, NULL);
     init_syscall_handler_table();
 
@@ -201,14 +203,28 @@ void set_handler_in_IDT(IDT_entry *entry, uint64_t address, uint16_t segment, in
 
     entry->IST = tss_st_num;
 }
+void set_handler_in_IDT_trap(IDT_entry *entry, uint64_t address, uint16_t segment, int tss_st_num) {
 
+    uint64_t mask = (1 << 16) - 1;
+
+    entry->offset_15_0 = address & mask;
+    entry->offset_31_16 = (address >> 16) & mask;
+    entry->offset_63_32 = (address >> 32) & (0x100000000 - 1);
+    
+    entry->type = TRAP_TYPE;
+    entry->DPL = HARDWARE;
+    entry->present = 1;
+    entry->selector = KERNEL_SEGMENT;
+
+    entry->IST = tss_st_num;
+}
 //entry point for all interrupts
 void irq_c_handler(int num, int error, int paramForSysCall) {
 
     IRQT *target = &irq_table[num];
 
     if (num == 123) {
-        target->handler(num, error, &paramForSysCall);
+        target->handler(num, error, paramForSysCall);
     }
     else {
         target->handler(num, error, NULL); 
@@ -216,6 +232,16 @@ void irq_c_handler(int num, int error, int paramForSysCall) {
 
     IRQ_end_of_interrupt(num);
 
+    
+    
+    if (curr_proc && curr_proc->pid == 1234 && next_proc != curr_proc) {
+        curr_proc->blocked = FALSE;
+        curr_proc->nextBlock = NULL;
+        /*int loop = 1;
+        while(loop) {
+
+        }*/
+    }
 }
 void TSS_init() {
 

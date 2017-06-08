@@ -3,6 +3,7 @@
 #include "kmalloc.h"
 #include "vga.h"
 #include "types.h"
+#include "interrupt.h"
 #define NULL 0
 
 //TODO: move these to interrupt.c
@@ -31,6 +32,7 @@ void init_syscall_handler_table() {
 
     set_sys_handler(3, yield_isr);
     set_sys_handler(4, exit_isr);
+    // set_sys_handler(5, getc_sys);
 
     
 
@@ -38,7 +40,10 @@ void init_syscall_handler_table() {
     next_proc = NULL;
 }
 
-void getc_sys() {
+
+void getc_sys(char *c) {
+
+    *c = getc();
 
 }
 
@@ -105,6 +110,12 @@ void add_proc_to_scheduler(Process *new) {
         cli();
     }
 
+    if (new->pid > 8) {
+        int loop = 1;
+        while (loop) {
+}
+    }
+
     //if the scheduleHeadPtr is pointing to the main process, overwrite
     //its just a placeholder for when there are no processes
     if (scheduleHeadPtr == mainProcPtr || !scheduleHeadPtr) {
@@ -131,6 +142,8 @@ void remove_head_from_scheduler() {
         cli();
     }
     
+
+
     Process *temp = scheduleHeadPtr;
 
     if (scheduleHeadPtr != mainProcPtr) {
@@ -143,6 +156,8 @@ void remove_head_from_scheduler() {
         if (!scheduleHeadPtr) {
             //scheduleHeadPtr should never be null
             scheduleHeadPtr = mainProcPtr;
+            mainProcPtr->nextBlock = NULL;
+            mainProcPtr->blocked = FALSE;
             //scheduleTailPtr doesn't matter because 
             //next time a proc is added with scheduleTailPtr
             //it'll see that scheduleHeadPtr is null and overwrite
@@ -231,6 +246,13 @@ void PROC_reschedule(void) {
     if (are_interrupts_enabled()) {
         interrupts = TRUE;
         cli();
+    }
+    
+    if (scheduleHeadPtr->pid > 8 && scheduleHeadPtr->pid != 1234) {
+        int loop = 1;
+        while(loop) {
+
+        }
     }
     
     //scheduleHeadPtr should only be NULL prior to any thread creation
@@ -331,14 +353,27 @@ void syscall(int unused1, int unused2, int sys_num) {
 
 
 void syscall_handler(int irq_num, int err, void *sys_num) {
-    int num = *((int *) sys_num);
+    int num = (int ) sys_num;
+
+
+
+    
 
     //actually calls the system call
 
     if (num == 6) {
         putc_sys((char)err);
     }
+    else if (num == 5) {
+
+    //int loop = 1;
+    //while(loop) {
+
+   // }
+        getc_sys((char *)err);
+    }
     else {
+
         sys_impl[num]();
     }
     
@@ -372,9 +407,11 @@ void PROC_unblock_head(ProcessQueue *pq) {
         interrupts = TRUE;
         cli();
     }
+    if (pq->head) {
+        add_proc_to_scheduler(pq->head);
+        remove_blockq_head(pq);
+    }
 
-    add_proc_to_scheduler(pq->head);
-    remove_blockq_head(pq);
 
     if (interrupts) {
         sti();

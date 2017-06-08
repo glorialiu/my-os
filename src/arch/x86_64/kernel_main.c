@@ -236,6 +236,43 @@ void kBreak() {
     }
 }
 
+/*
+void sys(int param1, int param2, int sysNum) {
+    asm("int $123");
+
+}
+
+void sysC(int param1, char* param2, int sysNum) {
+    asm("int $123");
+
+}
+
+
+char getc1() {
+    char c;
+    sysC(0, &c,5);
+
+    return c;
+}
+
+void putc1(char c) {
+    sys(0,c,6);
+}
+
+
+void test_sys_calls() {
+    char c;
+
+    while(1) {
+        //getc_sys(&c);//'c';
+        c = getc1();
+
+        if (c) {
+            putc1(c);
+        }
+    }
+}*/
+
 //implement a tab as 4 spaces?
 void kmain(int tagPtr) {
 
@@ -273,13 +310,13 @@ void kmain(int tagPtr) {
     //PROC_create_kthread(&kbd_init, NULL);
 
 
-    PROC_create_kthread((void *)&keyboard_io, NULL);
+    //PROC_create_kthread((void *)&keyboard_io, NULL);
 
-/*
+    /*
     PROC_create_kthread(&keyboard_io1_demo, NULL);
     PROC_create_kthread(&keyboard_io2_demo, NULL);
     PROC_create_kthread(&keyboard_io3_demo, NULL);
-*/
+    */
     
     /*printk("about to start polling\n");
     continuous_polling();
@@ -299,14 +336,13 @@ void kmain(int tagPtr) {
 
     PROC_create_kthread((void *)&read_dir_test, NULL);
 
-    uint64_t start = 0x800000052;
-
-    PROC_create_kthread((void *) start, NULL);
-
+    //PROC_create_kthread((void *) &test_sys_calls, NULL);
+    //PROC_create_kthread((void *) 0x80000006E, NULL);
     while(1) {
         //testing
-        //printk("PROC_run()\n");
+        
         PROC_run();
+        //printk("PROC_run()\n");
         asm("hlt");
     }
 
