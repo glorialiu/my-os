@@ -273,6 +273,23 @@ void test_sys_calls() {
     }
 }*/
 
+//call with user_program(0, 'c', 6) //int num, char c, int call
+void user_program() {
+
+    //inb(PS2_DATA); //0x60
+    //void *ptr = alloc_heap_vpage(0);
+    //int x= 100;
+    asm volatile("sti");
+    int *ptr = 1000;
+    *ptr = 1;
+
+    while(1) {
+
+    }
+    
+    
+}
+
 //implement a tab as 4 spaces?
 void kmain(int tagPtr) {
 
@@ -324,7 +341,7 @@ void kmain(int tagPtr) {
 
     /* BLOCK DEVICE STUFF */
 
-    
+    /*
     
     ata_init();
     PROC_create_kthread((void *)&block_test_thread, NULL);
@@ -333,8 +350,20 @@ void kmain(int tagPtr) {
     
     PROC_create_kthread((void *)&read_mbr_block, NULL);
     PROC_create_kthread((void *)&read_bpb_block, NULL);
+*/
 
-    PROC_create_kthread((void *)&read_dir_test, NULL);
+
+    //PROC_create_kthread((void *)&read_dir_test, NULL);
+
+
+    
+    uint64_t cr3 = read_cr3();
+    void *userPage = alloc_user_vpage(cr3);
+    memcpy(userPage, (void *) user_program, 4096);
+
+    PROC_create_uthread((void*) userPage, NULL);
+    
+
 
     //PROC_create_kthread((void *) &test_sys_calls, NULL);
     //PROC_create_kthread((void *) 0x80000006E, NULL);

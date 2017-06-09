@@ -201,6 +201,8 @@ struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg) {
     }*/
     new->pid = id++;
 
+    new->tss_rsp0 = 0; //rsp0 not needed
+
     //check all fields are filled
     new->nextSched = NULL;
     new->prevSched = NULL;
@@ -215,6 +217,55 @@ struct Process* PROC_create_kthread(kproc_t entry_pt, void *arg) {
 
     return new;
 }
+
+
+struct Process* PROC_create_uthread(kproc_t entry_pt, void *arg) {
+
+    
+    Process *new = malloc(sizeof(struct Process));
+    memset(new, 0, sizeof(struct Process));
+
+
+
+
+    new->rip = entry_pt;
+    new->cs = 0x23;
+
+    uint64_t newrsp =  (uint64_t) alloc_user_vpage(0);
+    new->rsp = newrsp + 4096 ;//allocates a user page (points to the end)
+
+    new->ss = 0x2B;
+    new->flags = 512;//flag with interrupts enabled;
+    
+    // a user thread cannot call kexit
+    //new->rsp = new->rsp - 8;
+    //*((uint64_t *) new->rsp) = kexit;
+
+    new->rdi = arg;
+    new->pid = id++;
+
+    new->tss_rsp0 = alloc_stack_vpage(0);//alloc_user_vpage(0) + 4096;//make sure this points to the end
+
+    //check all fields are filled
+    new->nextSched = NULL;
+    new->prevSched = NULL;
+    new->nextBlock = NULL;
+    new->next = NULL;
+    new->blocked = FALSE;
+
+    // add to main proc linked list and scheduler linked list
+    add_proc(new);
+    add_proc_to_scheduler(new);
+
+    /*
+    int loop = 1;
+    while (loop) {
+}*/
+
+    return new;
+}
+
+
 
 // starts everything running
 // kthreads probably schedule prior to PROC_run being called

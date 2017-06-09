@@ -9,6 +9,13 @@
 #define ON 1
 #define OFF 0
 
+#define PS2_DATA 0x60
+#define PS2_CMD 0x64
+#define PS2_STATUS PS2_CMD
+#define PS2_STATUS_OUTPUT 1
+#define PS2_STATUS_INPUT (1 << 1)
+
+
 extern char ps2_poll_read(void);
 extern void ps2_initialize(void);
 

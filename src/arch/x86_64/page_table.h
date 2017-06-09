@@ -76,8 +76,8 @@ typedef struct PT {
 } __attribute__((packed)) PT;
 
 void *ptable_init(page_table *pt);
-void setup_page(void *addr, page_table *pt);
-void setup_pages(void *addr, int numPages, page_table *pt);
+void setup_page(void *addr, page_table *pt, int privilege);
+void setup_pages(void *addr, int numPages, page_table *pt, int privilege);
 
 PT *return_pt_entry(void *addr, page_table *pt);
 void unresolved_pf();
@@ -94,6 +94,7 @@ extern void *alloc_heap_vpage(page_table *pt);
 extern void *alloc_heap_vpages(page_table *pt, int numPages);
 extern void *alloc_stack_vpage(page_table *pt);
 extern void *alloc_user_vpage(page_table *pt);
+extern void *alloc_user_vpages(page_table *pt, int numPages);
 
 extern void *free_page(void *address);
 extern void *free_pages(void *address, int num);

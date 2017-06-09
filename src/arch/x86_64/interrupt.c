@@ -34,8 +34,10 @@
 
 #define HARDWARE 0
 #define SOFTWARE 3
+#define USER_LEVEL 3
 
 #define STACK_SIZE 4096
+#define SYS_STACK_SIZE 8192
 
 // this will probably change
 #define NUM_GDT_ENTRIES 8
@@ -53,7 +55,7 @@ struct IRQT irq_table[NUM_INTERRUPTS];
 char DF_stack[STACK_SIZE];
 char GPF_stack[STACK_SIZE];
 char PF_stack[STACK_SIZE];
-char SYS_stack[STACK_SIZE];
+char SYS_stack[SYS_STACK_SIZE];
 
 
 struct TSS ts_segment;
@@ -68,6 +70,8 @@ int syscall_flag = FALSE;
 
 extern int tss;
 extern int gdt64;
+extern int user_code;
+extern int user_data;
 
 void idt_init() {
 
@@ -120,7 +124,7 @@ void idt_init() {
     
 
     // set handler for system calls
-    set_handler_in_IDT_trap(&IDT_table[123], (uint64_t) &irq_handler123, KERNEL_SEGMENT, 0);//4);
+    set_handler_in_IDT_trap(&IDT_table[123], (uint64_t) &irq_handler123, KERNEL_SEGMENT, 0);
     IRQ_set_handler(123, syscall_handler, NULL);
     init_syscall_handler_table();
 
@@ -212,7 +216,7 @@ void set_handler_in_IDT_trap(IDT_entry *entry, uint64_t address, uint16_t segmen
     entry->offset_63_32 = (address >> 32) & (0x100000000 - 1);
     
     entry->type = TRAP_TYPE;
-    entry->DPL = HARDWARE;
+    entry->DPL = USER_LEVEL;
     entry->present = 1;
     entry->selector = KERNEL_SEGMENT;
 
@@ -252,7 +256,7 @@ void TSS_init() {
     ts_segment.interrupt_st1 = (uint64_t) &GPF_stack[STACK_SIZE - 8];
     ts_segment.interrupt_st2 = (uint64_t) &DF_stack[STACK_SIZE - 8];
     ts_segment.interrupt_st3 = (uint64_t) &PF_stack[STACK_SIZE - 8];
-    ts_segment.interrupt_st4 = (uint64_t) &SYS_stack[STACK_SIZE - 8];
+    ts_segment.interrupt_st4 = (uint64_t) &SYS_stack[SYS_STACK_SIZE - 8];
 
     // io_map needs to point to io bit map
     ts_segment.io_map = (uint64_t) &io_bitmap - (uint64_t) &ts_segment;

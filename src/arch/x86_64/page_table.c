@@ -4,6 +4,9 @@
 #include "inline_asm.h"
 #include "vga.h"
 
+#define KERNEL_DPL 0
+#define USER_DPL 1
+
 #define NUM_PML4_ENTRIES 1
 #define NUM_PDP_ENTRIES NUM_PML4_ENTRIES * 512
 #define NUM_PD_ENTRIES NUM_PDP_ENTRIES * 512
@@ -25,13 +28,13 @@ static void *physicalPFStart = (void *)  0x0;
 
 static void *kStackEnd = (void *) 0x8200000;
 
-static void *kHeapEnd = (void *)  0x8000000;
+static void *kHeapEnd = (void *) 0x8000000;
 //0x400000000;
 
 //0x8000000;
 //0x400000000;
 
-static void *userSpaceEnd = (void *) 0x800000000;
+static void *userSpaceEnd = (void *) 0xA0000000;
 
 page_table *pt_temp;
 
@@ -78,7 +81,7 @@ void *ptable_init(page_table *pt_start) {
     // setting first PDP block
     id_pdp->p = 1;
     id_pdp->rw = 1;
-    id_pdp->us = 1;
+    id_pdp->us = 0;
     id_pdp->base_address = (uint64_t) id_pd >> 12;
 
     // set entire page of PD blocks
@@ -90,7 +93,7 @@ void *ptable_init(page_table *pt_start) {
     for (i = 0; i < 63; i++) {
         id_pd->p = 1;
         id_pd->rw = 1;
-        id_pd->us = 1;
+        id_pd->us = 0;
 
         //make each block "point" to a new page
         id_pd->base_address = (uint64_t) MMU_pf_alloc() >> 12;
@@ -120,17 +123,17 @@ void *ptable_init(page_table *pt_start) {
 
 
 
-void setup_pages(void *addr, int numPages, page_table *pt) {
+void setup_pages(void *addr, int numPages, page_table *pt, int privilege) {
     int i = 0;
     uint64_t address = (uint64_t) addr;
     
     for (i = 0; i < numPages; i++) {
-        setup_page((void*) address, pt);
+        setup_page((void*) address, pt, privilege);
         address += PAGE_SIZE;
     }
 }
 
-void setup_page(void *addr, page_table *pt) {
+void setup_page(void *addr, page_table *pt, int privilege) {
     uint64_t address = (uint64_t) addr;
 
     int pmlIdx = (address >> 39 & BOTTOM_9BIT_MASK);
@@ -154,7 +157,7 @@ void setup_page(void *addr, page_table *pt) {
     if (pml_entry->p != 1) {
         pml_entry->p = 1;
         pml_entry->rw = 1;
-        pml_entry->us = 1;
+        pml_entry->us = privilege;
             
         temp =  MMU_pf_alloc();
         memset(temp, 0, ENTRY_SIZE * 512);
@@ -165,7 +168,7 @@ void setup_page(void *addr, page_table *pt) {
     if (pdp_entry-> p != 1) {
         pdp_entry->p = 1;
         pdp_entry->rw = 1;
-        pdp_entry->us = 1;
+        pdp_entry->us = privilege;
         pdp_entry->zero = 0; //this shouldnt be necessary
 
         temp =  MMU_pf_alloc();
@@ -177,7 +180,7 @@ void setup_page(void *addr, page_table *pt) {
     if (pd_entry-> p != 1) {
         pd_entry->p = 1;
         pd_entry->rw = 1;
-        pd_entry->us = 1;
+        pd_entry->us = privilege;
         pd_entry->zero = 0;
 
         temp =  MMU_pf_alloc();
@@ -189,7 +192,7 @@ void setup_page(void *addr, page_table *pt) {
     pt_entry = get_PT(pd_entry, ptIdx);
     //set up the page table entry
     pt_entry->rw = 1;
-    pt_entry->us = 1;
+    pt_entry->us = privilege;
 
     //temporarily not doing demand paging for debugging purposes;
     pt_entry->demand = 1;
@@ -241,16 +244,20 @@ PT *return_pt_entry(void *addr, page_table *pt) {
 
     pml_entry = get_PML4(pmlIdx, pt);
     if (pml_entry->p != 1) {
+
+        printk("PML LEVEL FAULT\n");
         unresolved_pf();
     }
 
     pdp_entry = get_PDP(pml_entry, pdpIdx);
     if (pdp_entry->p != 1) {
+        printk("PDP LEVEL FAULT\n");
         unresolved_pf();       
     }
 
     pd_entry = get_PD(pdp_entry, pdIdx);
     if (pd_entry->p != 1) {
+        printk("PD LEVEL FAULT\n");
         unresolved_pf();    
     }
 
@@ -271,7 +278,7 @@ void unresolved_pf() {
 
 void page_fault_handler(int num, int error, void *arg) {
     uint64_t addr = read_cr2();
-  
+  //printk("ERROR CODE: %d\n", error);
     /*
     int loop = 1;
     while(loop) {
@@ -297,7 +304,7 @@ void page_fault_handler(int num, int error, void *arg) {
         entry->base_address = (uint64_t) MMU_pf_alloc() >> 12; 
     }
     else {
-
+        printk("ERROR CODE: %d\n", error);
         unresolved_pf();
     }
 }
@@ -306,7 +313,7 @@ void page_fault_handler(int num, int error, void *arg) {
 void *alloc_heap_vpage(page_table *pt) {
     void *addr = kHeapEnd;
     kHeapEnd += PAGE_SIZE;
-    setup_page(addr, pt);
+    setup_page(addr, pt, KERNEL_DPL);
 
     return addr;
 }
@@ -314,7 +321,7 @@ void *alloc_heap_vpage(page_table *pt) {
 void *alloc_heap_vpages(page_table *pt, int numPages) {
     void *addr = kHeapEnd;
     kHeapEnd += PAGE_SIZE * numPages;
-    setup_pages(addr, numPages, pt);
+    setup_pages(addr, numPages, pt, KERNEL_DPL);
 
     return addr;
 }
@@ -325,7 +332,7 @@ void *alloc_stack_vpage(page_table *pt) {
 
     void *addr = kStackEnd;
     kStackEnd += NUM_STACK_PAGES * PAGE_SIZE;
-    setup_pages(addr, NUM_STACK_PAGES, pt);
+    setup_pages(addr, NUM_STACK_PAGES, pt, KERNEL_DPL);
 
 
     return kStackEnd;
@@ -333,10 +340,27 @@ void *alloc_stack_vpage(page_table *pt) {
 
 void *alloc_user_vpage(page_table *pt) {
     void *addr = userSpaceEnd;
-    userSpaceEnd += PAGE_SIZE;
-    setup_page(addr, pt);
+    userSpaceEnd = (uint64_t) userSpaceEnd + PAGE_SIZE;
+    setup_page(addr, pt, USER_DPL); 
 
     return addr;   
+}
+
+void *alloc_user_vpages(page_table *pt, int numPages) {
+    void *addr = userSpaceEnd;
+    userSpaceEnd += PAGE_SIZE * numPages;
+    setup_pages(addr, numPages, pt, USER_DPL); 
+
+    return addr;
+}
+
+
+void *alloc_user_stack(page_table *pt) {
+    void *addr = userSpaceEnd;
+    userSpaceEnd += PAGE_SIZE;
+    setup_page(addr, pt, USER_DPL); 
+
+    return userSpaceEnd;   
 }
 
 

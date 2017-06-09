@@ -3,7 +3,8 @@ extern long_mode_start
 
 global gdt64
 global tss
-
+global user_code
+global user_data
 global tags
 
 
@@ -171,7 +172,7 @@ p3_table:
 p2_table:
     resb 4096
 stack_bottom:
-    resb 8192;4096
+    resb 4096
 stack_top:
 
 section .rodata
@@ -183,6 +184,13 @@ gdt64:
 tss:
     dq 0;
     dq 0;
+user_code:
+    dq (1<<42) | (1<<43) | (1<<44) | (1<<45) | (1<<46) | (1<<47) | (1<<53) 
+  ;  dq (1<<43) | (1<<44) | (1<<45) | (1<<46) | (1<<47) | (1<<53) ;
+   
+user_data:
+    dq (1 << 41) | (1<<44) | (1<<45) | (1<<46) | (1<<47) | (1>>53); data segment
+       ;^needs to be 1 ^    ^ user mode ^      present
 pointer:
     dw $ - gdt64 - 1
     dq gdt64

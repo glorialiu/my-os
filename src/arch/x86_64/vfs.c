@@ -580,43 +580,33 @@ void read_dir_test() {
     uint16_t test[200];
     Inode *nodey = path_readdir("/boot/a.out", sb.root_inode, NULL);
 
-    File *fakeFile = open(nodey);
+    File *executable = open(nodey);
     
-
-    
-    
-    fakeFile->lseek(fakeFile, 0, SEEK_SET);
-    fakeFile->read(fakeFile, (void*) test, 400);
+    executable->lseek(executable, 0, SEEK_SET);
+    executable->read(executable, (void*) test, 400);
     ELFCommonHeader *elf = (ELFCommonHeader *) test;
     ELF64Header *header = (ELF64Header *) test;
 
-    fakeFile->lseek(fakeFile, header->prog_table_pos, SEEK_SET);
+    executable->lseek(executable, header->prog_table_pos, SEEK_SET);
 
     uint16_t test2[50];
 
-    fakeFile->read(fakeFile, (void*)test2, header->prog_ent_size);
+    executable->read(executable, (void*)test2, header->prog_ent_size);
     ELF64ProgHeader *ent = (ELF64ProgHeader *) test2;
 
-    load_program(fakeFile, ent);
+    load_program(executable, ent);
 
     prog_start = header->prog_entry_pos;
 
-    syscall_flag = TRUE;
-
-
-    PROC_create_kthread((void *) prog_start, NULL);
-
+    printk("****a.out loaded****\n\n");
+   //PROC_create_kthread((void *) prog_start, NULL);
+    PROC_create_uthread((void *) prog_start, NULL);
 
 
     /*
     char *str = (char*) test;
     printk("%s\n", str);
 
-
-   
-
-
-    
 */
 
 

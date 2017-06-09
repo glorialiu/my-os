@@ -6,11 +6,6 @@
 
 #define NULL 0
 
-#define PS2_DATA 0x60
-#define PS2_CMD 0x64
-#define PS2_STATUS PS2_CMD
-#define PS2_STATUS_OUTPUT 1
-#define PS2_STATUS_INPUT (1 << 1)
 
 #define DISABLE_PORT1 0xAD
 #define DISABLE_PORT2 0xA7
@@ -133,11 +128,6 @@ void kbd_isr() {
     else {
         //data is the scan code
 
-     /*   
-    int loop =  1;
-    while(loop ) {
-
-    }*/
         char key = get_scancode(data); // stuff with this needs to be fixed.. like shift and tab etc
         write_kbd_buffer(key);
         PROC_unblock_head(kbdPQ);  

@@ -8,6 +8,9 @@ extern irq_c_handler
 
 extern next_proc
 extern curr_proc
+extern tss
+
+extern ts_segment
 
 extern syscall_flag
 global irq_gpf_handler
@@ -448,6 +451,10 @@ common_irq_handler_2:
     mov rax, gs
     mov [rbx + 0xA0], rax
 
+    ; save tss->rsp0
+    mov rax, [ts_segment+ 0x04]
+    mov [rbx + 0xC0], rax
+
     ;whats left, rsp, rip, flags to save. how? does it matter how i do this?
     ; do this by going back to the stack
     mov rax, [rsp + 0x78] ;save rip
@@ -505,6 +512,13 @@ no_save_needed:
     mov es, [rcx + 0x90]
     mov fs, [rcx + 0x98]
     mov gs, [rcx + 0xA0]
+
+
+    ; save tss->rsp0
+    mov rax, [rcx + 0xC0]
+    mov [ts_segment + 0x04], rax
+    
+
 
 
     mov rax, [rcx + 0xB0]; load rip

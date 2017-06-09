@@ -31,6 +31,7 @@ typedef struct Process {
     uint64_t flags;
     //uint64_t cr3; //aka page table
     //other control registers?
+    uint64_t tss_rsp0;
     
     uint64_t pid;
     struct Process *next;

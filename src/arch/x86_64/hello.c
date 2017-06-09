@@ -10,7 +10,7 @@ void sys_char(int param1, char* param2, int sysNum) {
 
 
 char getc_sys() {
-    char c;
+    char c ;
     sys_char(0, &c,5);
 
     return c;
@@ -24,7 +24,8 @@ void putc_sys(char c) {
 void _start() {
     char c;
 
-/*
+    putc_sys('h');
+
     putc_sys('h');
     putc_sys('e');
     putc_sys('l');
@@ -37,14 +38,16 @@ void _start() {
     putc_sys('l');
     putc_sys('d');
     putc_sys('\n');
-*/
+
 
     while(1) {
+    /*
         c = getc_sys();
 
         if (c) {
             putc_sys(c);
         }
+    */
     }
 }
 

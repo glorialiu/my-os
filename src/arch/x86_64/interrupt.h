@@ -4,6 +4,8 @@
 #define NUM_IRQS 10
 #define NUM_INTERRUPTS 256
 
+
+extern struct TSS ts_segment;
 extern int syscall_flag;
 
 extern void idt_init(void);
